@@ -1,7 +1,7 @@
 ---
-import DocsLayout from "../layouts/DocsLayout.astro";
-import CodeBlock from "../components/CodeBlock.astro";
-import Callout from "../components/Callout.astro";
+import DocsLayout from '../layouts/DocsLayout.astro';
+import CodeBlock from '../components/CodeBlock.astro';
+import Callout from '../components/Callout.astro';
 
 const dependency = (value: string) => `[dependencies]
 ${value}
@@ -14,10 +14,22 @@ const installValues = {
 };
 
 const topics = [
-  ["Directory strategies", "Use a dot directory, XDG, an exact custom path, or discover project config from ancestors.", "/directory-strategies"],
-  ["Multiple formats", "TOML by default, with feature-gated JSON and YAML support.", "/formats"],
-  ["Typed key access", "Read and write individual values as Rust types without replacing the whole config.", "/key-access"],
-  ["Environment overrides", "Layer environment variables over file configuration for CLI and deployment workflows.", "/environment"],
+  [
+    'Directory strategies',
+    'Use a dot directory, XDG, an exact custom path, or discover project config from ancestors.',
+    '/directory-strategies',
+  ],
+  ['Multiple formats', 'TOML by default, with feature-gated JSON and YAML support.', '/formats'],
+  [
+    'Typed key access',
+    'Read and write individual values as Rust types without replacing the whole config.',
+    '/key-access',
+  ],
+  [
+    'Environment overrides',
+    'Layer environment variables over file configuration for CLI and deployment workflows.',
+    '/environment',
+  ],
 ];
 
 const quickStart = `use dotcfg::DotCfg;
@@ -37,72 +49,168 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }`;
 
 const examples = [
-  ["Choose what a missing file means", "Load configuration optionally, require it, or create defaults.", "/loading-saving"],
-  ["Keep values typed", "Read and write numbers, booleans, strings, and nested values without flattening your config.", "/key-access"],
-  ["Put config where your project needs it", "Move from the default dot directory to XDG, a custom directory, or ancestor discovery.", "/directory-strategies"],
+  [
+    'Choose what a missing file means',
+    'Load configuration optionally, require it, or create defaults.',
+    '/loading-saving',
+  ],
+  [
+    'Keep values typed',
+    'Read and write numbers, booleans, strings, and nested values without flattening your config.',
+    '/key-access',
+  ],
+  [
+    'Put config where your project needs it',
+    'Move from the default dot directory to XDG, a custom directory, or ancestor discovery.',
+    '/directory-strategies',
+  ],
 ];
 ---
+
 <DocsLayout>
   <span class="text-[13px] font-bold text-primary">Flexible configuration for Rust</span>
-  <h1 class="m-0 mb-5 mt-3 text-[clamp(38px,7vw,64px)] leading-[1.02] tracking-[-0.045em] max-[760px]:text-[44px]">Config that fits your application.</h1>
-  <p class="max-w-[680px] text-xl text-muted-foreground max-[760px]:text-lg">dotcfg handles where configuration lives, how it is encoded, and how you read it — without forcing one directory strategy or one access pattern.</p>
+  <h1 class="m-0 mb-5 mt-3 text-[clamp(38px,7vw,64px)] leading-[1.02] tracking-[-0.045em] max-[760px]:text-[44px]">
+    Config that fits your application.
+  </h1>
+  <p class="max-w-[680px] text-xl text-muted-foreground max-[760px]:text-lg">
+    dotcfg handles where configuration lives, how it is encoded, and how you read it — without
+    forcing one directory strategy or one access pattern.
+  </p>
 
   <section class="mt-[58px]">
     <div class="mb-[18px] flex items-end justify-between gap-6 max-[760px]:flex-col max-[760px]:items-start max-[760px]:gap-2">
       <div>
         <span class="text-[13px] font-bold text-primary">Get started</span>
-        <h2 class="m-0 mt-2 text-[26px] leading-[1.15] tracking-[-0.025em] max-[760px]:text-2xl">Start with the format you need.</h2>
+        <h2 class="m-0 mt-2 text-[26px] leading-[1.15] tracking-[-0.025em] max-[760px]:text-2xl">
+          Start with the format you need.
+        </h2>
       </div>
-      <a class="whitespace-nowrap text-sm font-bold text-primary" href="/getting-started">Full setup guide →</a>
+      <a class="whitespace-nowrap text-sm font-bold text-primary" href="/getting-started">
+        Full setup guide →
+      </a>
     </div>
     <div class="rounded-xl border border-border bg-card p-2.5" data-install-tabs>
-      <div class="flex flex-wrap gap-1 px-0.5 pb-2.5 pt-0.5" role="tablist" aria-label="dotcfg installation formats">
-        <button class="active rounded-[7px] border-0 bg-transparent px-2.5 py-[7px] text-[13px] font-bold text-muted-foreground cursor-pointer [&.active]:bg-muted [&.active]:text-foreground" type="button" data-tab="toml">TOML <small class="ml-1 font-medium opacity-70">default</small></button>
-        <button class="rounded-[7px] border-0 bg-transparent px-2.5 py-[7px] text-[13px] font-bold text-muted-foreground cursor-pointer [&.active]:bg-muted [&.active]:text-foreground" type="button" data-tab="json">JSON</button>
-        <button class="rounded-[7px] border-0 bg-transparent px-2.5 py-[7px] text-[13px] font-bold text-muted-foreground cursor-pointer [&.active]:bg-muted [&.active]:text-foreground" type="button" data-tab="yaml">YAML</button>
-        <button class="rounded-[7px] border-0 bg-transparent px-2.5 py-[7px] text-[13px] font-bold text-muted-foreground cursor-pointer [&.active]:bg-muted [&.active]:text-foreground" type="button" data-tab="all">All formats</button>
+      <div
+        class="flex flex-wrap gap-1 px-0.5 pb-2.5 pt-0.5"
+        role="tablist"
+        aria-label="dotcfg installation formats"
+      >
+        <button
+          class="active rounded-[7px] border-0 bg-transparent px-2.5 py-[7px] text-[13px] font-bold text-muted-foreground cursor-pointer [&.active]:bg-muted [&.active]:text-foreground"
+          type="button"
+          data-tab="toml"
+        >
+          TOML <small class="ml-1 font-medium opacity-70">default</small>
+        </button>
+        <button
+          class="rounded-[7px] border-0 bg-transparent px-2.5 py-[7px] text-[13px] font-bold text-muted-foreground cursor-pointer [&.active]:bg-muted [&.active]:text-foreground"
+          type="button"
+          data-tab="json"
+        >
+          JSON
+        </button>
+        <button
+          class="rounded-[7px] border-0 bg-transparent px-2.5 py-[7px] text-[13px] font-bold text-muted-foreground cursor-pointer [&.active]:bg-muted [&.active]:text-foreground"
+          type="button"
+          data-tab="yaml"
+        >
+          YAML
+        </button>
+        <button
+          class="rounded-[7px] border-0 bg-transparent px-2.5 py-[7px] text-[13px] font-bold text-muted-foreground cursor-pointer [&.active]:bg-muted [&.active]:text-foreground"
+          type="button"
+          data-tab="all"
+        >
+          All formats
+        </button>
       </div>
       <CodeBlock label="Cargo.toml" code={installValues.toml} compact />
     </div>
-    <p class="mt-3 text-[13px] text-muted-foreground">Published release: <a class="font-bold text-primary" href="https://docs.rs/dotcfg/0.3.0/dotcfg/">0.3.0</a>. Explore more on the <a class="font-bold text-primary" href="/examples">examples page</a>.</p>
+    <p class="mt-3 text-[13px] text-muted-foreground">
+      Published release:{' '}
+      <a class="font-bold text-primary" href="https://docs.rs/dotcfg/0.3.0/dotcfg/">
+        0.3.0
+      </a>
+      . Explore more on the{' '}
+      <a class="font-bold text-primary" href="/examples">
+        examples page
+      </a>
+      .
+    </p>
   </section>
 
   <section class="mt-[58px]">
     <div class="mb-[18px] flex items-end justify-between gap-6 max-[760px]:flex-col max-[760px]:items-start max-[760px]:gap-2">
       <div>
         <span class="text-[13px] font-bold text-primary">Your first config</span>
-        <h2 class="m-0 mt-2 text-[26px] leading-[1.15] tracking-[-0.025em] max-[760px]:text-2xl">Load a typed Rust configuration.</h2>
+        <h2 class="m-0 mt-2 text-[26px] leading-[1.15] tracking-[-0.025em] max-[760px]:text-2xl">
+          Load a typed Rust configuration.
+        </h2>
       </div>
     </div>
     <CodeBlock label="src/main.rs" code={quickStart} lineNumbers />
     <Callout type="info">
-      <p><strong>Missing is a choice.</strong> <code>load()</code> returns <code>Ok(None)</code> when the file is absent. Use <code>load_or_default()</code> to opt into creating it with default values. Parse and I/O errors still propagate.</p>
+      <p>
+        <strong>Missing is a choice.</strong> <code>load()</code> returns <code>Ok(None)</code> when
+        the file is absent. Use <code>load_or_default()</code> to opt into creating it with default
+        values. Parse and I/O errors still propagate.
+      </p>
     </Callout>
   </section>
 
   <div class="mt-[30px] grid grid-cols-2 gap-3 max-[760px]:grid-cols-1">
-    {topics.map(([title, description, href]) => <a class="rounded-[10px] border border-border bg-card p-[18px] transition-all hover:-translate-y-px hover:border-border-strong" href={href}><strong class="mb-[5px] block">{title}</strong><p class="m-0 text-sm text-muted-foreground">{description}</p><span class="mt-[14px] block text-[13px] font-bold text-primary">Read guide →</span></a>)}
+    {topics.map(([title, description, href]) => (
+      <a
+        class="rounded-[10px] border border-border bg-card p-[18px] transition-all hover:-translate-y-px hover:border-border-strong"
+        href={href}
+      >
+        <strong class="mb-[5px] block">{title}</strong>
+        <p class="m-0 text-sm text-muted-foreground">{description}</p>
+        <span class="mt-[14px] block text-[13px] font-bold text-primary">Read guide →</span>
+      </a>
+    ))}
   </div>
 
   <section class="mt-[58px]">
     <div class="mb-[18px] flex items-end justify-between gap-6 max-[760px]:flex-col max-[760px]:items-start max-[760px]:gap-2">
       <div>
         <span class="text-[13px] font-bold text-primary">Practical examples</span>
-        <h2 class="m-0 mt-2 text-[26px] leading-[1.15] tracking-[-0.025em] max-[760px]:text-2xl">Common things you’ll do with config.</h2>
+        <h2 class="m-0 mt-2 text-[26px] leading-[1.15] tracking-[-0.025em] max-[760px]:text-2xl">
+          Common things you’ll do with config.
+        </h2>
       </div>
-      <a class="whitespace-nowrap text-sm font-bold text-primary" href="/examples">All examples →</a>
+      <a class="whitespace-nowrap text-sm font-bold text-primary" href="/examples">
+        All examples →
+      </a>
     </div>
     <div class="border-t border-border">
-      {examples.map(([title, description, href]) => <a href={href} class="flex items-center justify-between gap-6 border-b border-border px-0.5 py-[18px]"><div><strong class="text-base">{title}</strong><p class="m-0 mt-0.5 text-sm text-muted-foreground">{description}</p></div><span class="text-xl text-primary">→</span></a>)}
+      {examples.map(([title, description, href]) => (
+        <a
+          href={href}
+          class="flex items-center justify-between gap-6 border-b border-border px-0.5 py-[18px]"
+        >
+          <div>
+            <strong class="text-base">{title}</strong>
+            <p class="m-0 mt-0.5 text-sm text-muted-foreground">{description}</p>
+          </div>
+          <span class="text-xl text-primary">→</span>
+        </a>
+      ))}
     </div>
   </section>
 
   <section class="mt-[58px] flex flex-wrap items-center justify-between gap-5 rounded-xl border border-border bg-card p-6">
     <div>
-      <h2 class="m-0 text-[26px] leading-[1.15] tracking-[-0.025em] max-[760px]:text-2xl">Need the full API?</h2>
-      <p class="mt-2 text-muted-foreground">Every method, type, and error is in the Rust reference.</p>
+      <h2 class="m-0 text-[26px] leading-[1.15] tracking-[-0.025em] max-[760px]:text-2xl">
+        Need the full API?
+      </h2>
+      <p class="mt-2 text-muted-foreground">
+        Every method, type, and error is in the Rust reference.
+      </p>
     </div>
-    <a class="whitespace-nowrap text-sm font-bold text-primary" href="https://docs.rs/dotcfg">Open docs.rs ↗</a>
+    <a class="whitespace-nowrap text-sm font-bold text-primary" href="https://docs.rs/dotcfg">
+      Open docs.rs ↗
+    </a>
   </section>
 
   <script is:inline define:vars={{ installValues }}>
@@ -112,7 +220,9 @@ const examples = [
         const code = document.querySelector('[data-install-tabs] [data-code-block] code');
         if (!key || !code) return;
         code.textContent = installValues[key];
-        document.querySelectorAll('[data-install-tabs] .tab').forEach((tab) => tab.classList.remove('active'));
+        document
+          .querySelectorAll('[data-install-tabs] .tab')
+          .forEach((tab) => tab.classList.remove('active'));
         button.classList.add('active');
       });
     });
