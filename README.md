@@ -26,17 +26,17 @@ Most config crates either lock you into a fixed directory strategy or only handl
 
 ### Comparison with `confy`
 
-| Feature | `dotcfg` | `confy` |
-| :--- | :---: | :---: |
-| **Dot-dir support (`~/.app/`)** | ✅ Built-in default | ❌ (XDG/Native only) |
-| **XDG directory (`~/.config/app/`)** | ✅ via `.xdg()` | ✅ |
-| **Custom directory (`at_dir`)** | ✅ any path, exactly as given | ❌ |
-| **Project discovery (`find_in_ancestors`)** | ✅ walks from current dir, nearest wins | ❌ |
-| **Ad-hoc key get/set by string path** | ✅ (`cfg.get("user.name")`) | ❌ (Full struct only) |
-| **Typed key get/set** | ✅ (`cfg.get_as::<u16>("port")`) | ❌ (Full struct only) |
-| **Full struct load/save** | ✅ | ✅ |
-| **Missing file handling** | ✅ Flexible (`None`, default, or error) | ⚠️ Forces file creation with `Default` |
-| **Multiple formats compiled in** | ✅ (TOML, JSON, YAML together) | ❌ Only 1 format can be compiled in |
+| Feature                                     |                `dotcfg`                 |                `confy`                 |
+| :------------------------------------------ | :-------------------------------------: | :------------------------------------: |
+| **Dot-dir support (`~/.app/`)**             |           ✅ Built-in default           |          ❌ (XDG/Native only)          |
+| **XDG directory (`~/.config/app/`)**        |             ✅ via `.xdg()`             |                   ✅                   |
+| **Custom directory (`at_dir`)**             |      ✅ any path, exactly as given      |                   ❌                   |
+| **Project discovery (`find_in_ancestors`)** | ✅ walks from current dir, nearest wins |                   ❌                   |
+| **Ad-hoc key get/set by string path**       |       ✅ (`cfg.get("user.name")`)       |         ❌ (Full struct only)          |
+| **Typed key get/set**                       |    ✅ (`cfg.get_as::<u16>("port")`)     |         ❌ (Full struct only)          |
+| **Full struct load/save**                   |                   ✅                    |                   ✅                   |
+| **Missing file handling**                   | ✅ Flexible (`None`, default, or error) | ⚠️ Forces file creation with `Default` |
+| **Multiple formats compiled in**            |     ✅ (TOML, JSON, YAML together)      |  ❌ Only 1 format can be compiled in   |
 
 ## Installation
 
@@ -265,11 +265,11 @@ For the generated Rust API reference, see **https://docs.rs/dotcfg**.
 
 ## Features
 
-| Feature | Default | Description |
-|---------|---------|-------------|
-| `toml` | ✅ | TOML format support |
-| `json` | ❌ | JSON format support |
-| `yaml` | ❌ | YAML format support |
+| Feature | Default | Description         |
+| ------- | ------- | ------------------- |
+| `toml`  | ✅      | TOML format support |
+| `json`  | ❌      | JSON format support |
+| `yaml`  | ❌      | YAML format support |
 
 ## License
 

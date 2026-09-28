@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
@@ -31,7 +31,7 @@
   --callout-error-bg: #fdf0ef;
 }
 
-:root[data-theme="dark"] {
+:root[data-theme='dark'] {
   --background: #181817;
   --foreground: #f3efe7;
   --card: #222220;
@@ -88,7 +88,7 @@
   --color-callout-error: var(--callout-error);
   --color-callout-error-bg: var(--callout-error-bg);
   --font-sans: Arial, Helvetica, sans-serif;
-  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
 }
 
 @layer base {

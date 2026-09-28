@@ -1,44 +1,74 @@
 ---
-import "../styles/global.css";
-import ThemeToggle from "../components/ThemeToggle.astro";
-import githubData from "../data/github.json";
-import { createDocsSchema, createHomeSchema } from "../lib/schema";
+import '../styles/global.css';
+import ThemeToggle from '../components/ThemeToggle.astro';
+import githubData from '../data/github.json';
+import { createDocsSchema, createHomeSchema } from '../lib/schema';
 
 interface Props {
   title?: string;
   description?: string;
   schema?: Record<string, unknown>;
-  ogType?: "website" | "article";
+  ogType?: 'website' | 'article';
   publishedAt?: Date;
   modifiedAt?: Date;
   toc?: { depth: number; slug: string; text: string }[];
 }
 
 const {
-  title = "dotcfg — Configuration management for Rust",
-  description = "Documentation for dotcfg, flexible configuration management for Rust applications.",
+  title = 'dotcfg — Configuration management for Rust',
+  description = 'Documentation for dotcfg, flexible configuration management for Rust applications.',
   schema: customSchema,
-  ogType = "website",
+  ogType = 'website',
   publishedAt,
   modifiedAt,
   toc = [],
 } = Astro.props;
 
-const currentPath = Astro.url.pathname.replace(/\/$/, "") || "/";
-const canonicalUrl = new URL(currentPath === "/" ? "/" : currentPath, Astro.site);
-const socialImageUrl = new URL("/brand/og.png", Astro.site);
-const pageTitle = title.replace(/\s+[—-]\s+dotcfg$/, "");
-const schema = customSchema ?? (currentPath === "/"
-  ? createHomeSchema(description)
-  : createDocsSchema({ title: pageTitle, description, path: currentPath }));
+const currentPath = Astro.url.pathname.replace(/\/$/, '') || '/';
+const canonicalUrl = new URL(currentPath === '/' ? '/' : currentPath, Astro.site);
+const generatedSocialImage = import.meta.env.PROD && currentPath !== '/';
+const socialImageUrl = new URL(
+  generatedSocialImage ? `/og${currentPath}.png` : '/brand/og.png',
+  Astro.site,
+);
+const socialImageAlt = generatedSocialImage
+  ? `${title.replace(/\s+[—-]\s+dotcfg$/, '')} — dotcfg ${currentPath.startsWith('/blog') ? 'Blog' : 'Documentation'}`
+  : 'dotcfg — Configuration management for Rust';
+const pageTitle = title.replace(/\s+[—-]\s+dotcfg$/, '');
+const schema =
+  customSchema ??
+  (currentPath === '/'
+    ? createHomeSchema(description)
+    : createDocsSchema({ title: pageTitle, description, path: currentPath }));
 const tocItems = toc.filter((heading) => heading.depth === 2 || heading.depth === 3);
-const starCount = Number.isFinite(githubData.stars) && githubData.stars > 0 ? githubData.stars : null;
+const starCount =
+  Number.isFinite(githubData.stars) && githubData.stars > 0 ? githubData.stars : null;
 const groups = [
-  { label: "Basics", links: [["Getting started", "/getting-started"], ["Directory strategies", "/directory-strategies"], ["Formats", "/formats"]] },
-  { label: "Core API", links: [["Loading & saving", "/loading-saving"], ["Key access", "/key-access"], ["Environment overrides", "/environment"]] },
-  { label: "Examples", links: [["Examples", "/examples"]] },
-  { label: "Blog", links: [["Blog", "/blog"]] },
-  { label: "Go deeper", links: [["API reference ↗", "https://docs.rs/dotcfg"], ["crates.io ↗", "https://crates.io/crates/dotcfg"]] },
+  {
+    label: 'Basics',
+    links: [
+      ['Getting started', '/getting-started'],
+      ['Directory strategies', '/directory-strategies'],
+      ['Formats', '/formats'],
+    ],
+  },
+  {
+    label: 'Core API',
+    links: [
+      ['Loading & saving', '/loading-saving'],
+      ['Key access', '/key-access'],
+      ['Environment overrides', '/environment'],
+    ],
+  },
+  { label: 'Examples', links: [['Examples', '/examples']] },
+  { label: 'Blog', links: [['Blog', '/blog']] },
+  {
+    label: 'Go deeper',
+    links: [
+      ['API reference ↗', 'https://docs.rs/dotcfg'],
+      ['crates.io ↗', 'https://crates.io/crates/dotcfg'],
+    ],
+  },
 ];
 ---
 
@@ -52,15 +82,24 @@ const groups = [
       (() => {
         const systemTheme = window.matchMedia('(prefers-color-scheme: dark)');
         let preference = 'system';
-        try { preference = localStorage.getItem('dotcfg-theme') || 'system'; } catch {}
+        try {
+          preference = localStorage.getItem('dotcfg-theme') || 'system';
+        } catch {}
         if (!['light', 'dark', 'system'].includes(preference)) preference = 'system';
         const applyTheme = () => {
-          const theme = preference === 'system' ? (systemTheme.matches ? 'dark' : 'light') : preference;
+          const theme =
+            preference === 'system' ? (systemTheme.matches ? 'dark' : 'light') : preference;
           document.documentElement.dataset.theme = theme;
           document.documentElement.style.colorScheme = theme;
-          const bg = getComputedStyle(document.documentElement).getPropertyValue('--background').trim();
-          document.querySelector('meta[name="theme-color"]')?.setAttribute('content', bg || (theme === 'dark' ? '#181817' : '#fbfaf7'));
-          document.querySelectorAll('[data-theme-select]').forEach((select) => { select.value = preference; });
+          const bg = getComputedStyle(document.documentElement)
+            .getPropertyValue('--background')
+            .trim();
+          document
+            .querySelector('meta[name="theme-color"]')
+            ?.setAttribute('content', bg || (theme === 'dark' ? '#181817' : '#fbfaf7'));
+          document.querySelectorAll('[data-theme-select]').forEach((select) => {
+            select.value = preference;
+          });
           document.querySelectorAll('[data-theme-favicon]').forEach((icon) => {
             icon.href = '/brand/icon-' + theme + '.png';
           });
@@ -71,7 +110,9 @@ const groups = [
         document.addEventListener('change', (event) => {
           if (!event.target.matches('[data-theme-select]')) return;
           preference = event.target.value;
-          try { localStorage.setItem('dotcfg-theme', preference); } catch {}
+          try {
+            localStorage.setItem('dotcfg-theme', preference);
+          } catch {}
           applyTheme();
         });
       })();
@@ -94,77 +135,227 @@ const groups = [
     <meta property="og:url" content={canonicalUrl} />
     <meta property="og:image" content={socialImageUrl} />
     <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="600" />
-    <meta property="og:image:alt" content="dotcfg — Configuration management for Rust" />
-    {ogType === "article" && publishedAt && <meta property="article:published_time" content={publishedAt.toISOString()} />}
-    {ogType === "article" && modifiedAt && <meta property="article:modified_time" content={modifiedAt.toISOString()} />}
+    <meta property="og:image:height" content={generatedSocialImage ? '630' : '600'} />
+    <meta property="og:image:alt" content={socialImageAlt} />
+    {ogType === 'article' && publishedAt && (
+      <meta property="article:published_time" content={publishedAt.toISOString()} />
+    )}
+    {ogType === 'article' && modifiedAt && (
+      <meta property="article:modified_time" content={modifiedAt.toISOString()} />
+    )}
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:creator" content="@Spectra010s" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={socialImageUrl} />
-    <meta name="twitter:image:alt" content="dotcfg — Configuration management for Rust" />
+    <meta name="twitter:image:alt" content={socialImageAlt} />
 
     <script type="application/ld+json" set:html={JSON.stringify(schema)} />
   </head>
   <body class="[&.nav-open]:overflow-hidden">
-    <div class="flex min-h-[38px] items-center justify-center gap-2.5 border-b border-border bg-muted px-5 py-[7px] text-center text-[13px] text-muted-foreground" role="status">
+    <div
+      class="flex min-h-[38px] items-center justify-center gap-2.5 border-b border-border bg-muted px-5 py-[7px] text-center text-[13px] text-muted-foreground"
+      role="status"
+    >
       <strong class="text-foreground">dotcfg 0.3.0 is out</strong>
-      <span class="max-[760px]:hidden">Custom directories and project config discovery are now available.</span>
-      <a class="whitespace-nowrap font-bold text-primary hover:underline" href="/directory-strategies">See what’s new →</a>
+      <span class="max-[760px]:hidden">
+        Custom directories and project config discovery are now available.
+      </span>
+      <a
+        class="whitespace-nowrap font-bold text-primary hover:underline"
+        href="/directory-strategies"
+      >
+        See what’s new →
+      </a>
     </div>
     <header class="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-border bg-background/95 px-7 backdrop-blur-[10px] max-[760px]:px-4">
-      <a class="inline-flex items-center gap-2 text-[19px] font-bold tracking-[-0.02em] text-foreground" href="/"><img class="rounded-md dark:hidden" src="/brand/icon-light.png" alt="" width="30" height="30" /><img class="hidden rounded-md dark:block" src="/brand/icon-dark.png" alt="" width="30" height="30" /><span><span class="text-primary">dot</span>cfg</span></a>
+      <a
+        class="inline-flex items-center gap-2 text-[19px] font-bold tracking-[-0.02em] text-foreground"
+        href="/"
+      >
+        <img
+          class="rounded-md dark:hidden"
+          src="/brand/icon-light.png"
+          alt=""
+          width="30"
+          height="30"
+        />
+        <img
+          class="hidden rounded-md dark:block"
+          src="/brand/icon-dark.png"
+          alt=""
+          width="30"
+          height="30"
+        />
+        <span>
+          <span class="text-primary">dot</span>cfg
+        </span>
+      </a>
       <div class="flex shrink-0 items-center justify-end gap-2">
-        <a class="inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-lg border border-border bg-card px-3 text-[13px] font-bold leading-none transition-colors hover:border-border-strong hover:bg-primary-foreground dark:hover:bg-muted max-[760px]:h-[34px] max-[760px]:gap-1.5 max-[760px]:px-2 max-[760px]:text-xs" href="https://github.com/Spectra010s/dotcfg" aria-label={starCount ? `Star dotcfg on GitHub. ${starCount} stars.` : "Star dotcfg on GitHub"}>
-          <span class="relative inline-flex items-center justify-center text-xl leading-none max-[760px]:text-[19px]" aria-hidden="true">☆{starCount && <span class="absolute -right-[11px] -top-2 flex h-[17px] min-w-[17px] items-center justify-center rounded-full border-2 border-background bg-primary px-1 text-[9px] font-extrabold leading-none text-white">{starCount}</span>}</span>
-          <span>Star<span class="max-[760px]:hidden"> on GitHub</span></span>
+        <a
+          class="inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-lg border border-border bg-card px-3 text-[13px] font-bold leading-none transition-colors hover:border-border-strong hover:bg-primary-foreground dark:hover:bg-muted max-[760px]:h-[34px] max-[760px]:gap-1.5 max-[760px]:px-2 max-[760px]:text-xs"
+          href="https://github.com/Spectra010s/dotcfg"
+          aria-label={
+            starCount ? `Star dotcfg on GitHub. ${starCount} stars.` : 'Star dotcfg on GitHub'
+          }
+        >
+          <span
+            class="relative inline-flex items-center justify-center text-xl leading-none max-[760px]:text-[19px]"
+            aria-hidden="true"
+          >
+            ☆
+            {starCount && (
+              <span class="absolute -right-[11px] -top-2 flex h-[17px] min-w-[17px] items-center justify-center rounded-full border-2 border-background bg-primary px-1 text-[9px] font-extrabold leading-none text-white">
+                {starCount}
+              </span>
+            )}
+          </span>
+          <span>
+            Star<span class="max-[760px]:hidden"> on GitHub</span>
+          </span>
         </a>
-        <button class="hidden h-[38px] w-[38px] shrink-0 cursor-pointer rounded-[7px] border-0 bg-transparent p-2 max-[760px]:block" type="button" aria-label="Open documentation navigation" aria-controls="mobile-nav" aria-expanded="false" data-menu-open>
-          <span class="mx-auto my-1 block h-[1.5px] w-[21px] bg-foreground"></span><span class="mx-auto my-1 block h-[1.5px] w-[21px] bg-foreground"></span><span class="mx-auto my-1 block h-[1.5px] w-[21px] bg-foreground"></span>
+        <button
+          class="hidden h-[38px] w-[38px] shrink-0 cursor-pointer rounded-[7px] border-0 bg-transparent p-2 max-[760px]:block"
+          type="button"
+          aria-label="Open documentation navigation"
+          aria-controls="mobile-nav"
+          aria-expanded="false"
+          data-menu-open
+        >
+          <span class="mx-auto my-1 block h-[1.5px] w-[21px] bg-foreground"></span>
+          <span class="mx-auto my-1 block h-[1.5px] w-[21px] bg-foreground"></span>
+          <span class="mx-auto my-1 block h-[1.5px] w-[21px] bg-foreground"></span>
         </button>
       </div>
     </header>
 
-    <div class="invisible fixed inset-0 z-40 bg-foreground/30 opacity-0 transition-all max-[760px]:block max-[760px]:[&.open]:visible max-[760px]:[&.open]:opacity-100" data-nav-backdrop></div>
+    <div
+      class="invisible fixed inset-0 z-40 bg-foreground/30 opacity-0 transition-all max-[760px]:block max-[760px]:[&.open]:visible max-[760px]:[&.open]:opacity-100"
+      data-nav-backdrop
+    ></div>
 
     <div class="mx-auto grid max-w-[1600px] grid-cols-[220px_minmax(0,1fr)_180px] gap-[42px] px-7 pb-16 pt-[42px] max-[1200px]:grid-cols-[220px_minmax(0,1fr)] max-[900px]:grid-cols-[210px_minmax(0,1fr)] max-[900px]:gap-7 max-[760px]:block max-[760px]:px-5 max-[760px]:pb-11 max-[760px]:pt-[30px]">
-      <aside class="sticky top-[94px] max-h-[calc(100vh-122px)] overflow-y-auto max-[760px]:fixed max-[760px]:inset-y-0 max-[760px]:left-0 max-[760px]:z-50 max-[760px]:flex max-[760px]:max-h-none max-[760px]:w-[min(84vw,320px)] max-[760px]:-translate-x-[102%] max-[760px]:flex-col max-[760px]:overflow-visible max-[760px]:bg-background max-[760px]:shadow-[18px_0_50px_rgba(32,32,29,0.12)] max-[760px]:transition-transform max-[760px]:duration-200 max-[760px]:[&.open]:translate-x-0" id="mobile-nav" aria-label="Documentation navigation" data-mobile-nav>
-      <div class="hidden h-16 items-center justify-between border-b border-border px-[18px] max-[760px]:flex">
-        <a class="inline-flex items-center gap-2 text-[19px] font-bold tracking-[-0.02em] text-foreground" href="/"><img class="rounded-md dark:hidden" src="/brand/icon-light.png" alt="" width="30" height="30" /><img class="hidden rounded-md dark:block" src="/brand/icon-dark.png" alt="" width="30" height="30" /><span><span class="text-primary">dot</span>cfg</span></a>
-        <button class="cursor-pointer border-0 bg-transparent px-2 py-[5px] text-[28px] leading-none text-muted-foreground" type="button" aria-label="Close documentation navigation" data-menu-close>×</button>
-      </div>
+      <aside
+        class="sticky top-[94px] max-h-[calc(100vh-122px)] overflow-y-auto max-[760px]:fixed max-[760px]:inset-y-0 max-[760px]:left-0 max-[760px]:z-50 max-[760px]:flex max-[760px]:max-h-none max-[760px]:w-[min(84vw,320px)] max-[760px]:-translate-x-[102%] max-[760px]:flex-col max-[760px]:overflow-visible max-[760px]:bg-background max-[760px]:shadow-[18px_0_50px_rgba(32,32,29,0.12)] max-[760px]:transition-transform max-[760px]:duration-200 max-[760px]:[&.open]:translate-x-0"
+        id="mobile-nav"
+        aria-label="Documentation navigation"
+        data-mobile-nav
+      >
+        <div class="hidden h-16 items-center justify-between border-b border-border px-[18px] max-[760px]:flex">
+          <a
+            class="inline-flex items-center gap-2 text-[19px] font-bold tracking-[-0.02em] text-foreground"
+            href="/"
+          >
+            <img
+              class="rounded-md dark:hidden"
+              src="/brand/icon-light.png"
+              alt=""
+              width="30"
+              height="30"
+            />
+            <img
+              class="hidden rounded-md dark:block"
+              src="/brand/icon-dark.png"
+              alt=""
+              width="30"
+              height="30"
+            />
+            <span>
+              <span class="text-primary">dot</span>cfg
+            </span>
+          </a>
+          <button
+            class="cursor-pointer border-0 bg-transparent px-2 py-[5px] text-[28px] leading-none text-muted-foreground"
+            type="button"
+            aria-label="Close documentation navigation"
+            data-menu-close
+          >
+            ×
+          </button>
+        </div>
         <div class="grid min-h-0 gap-[26px] overflow-y-auto pb-5 max-[760px]:flex-1 max-[760px]:flex-col max-[760px]:gap-0 max-[760px]:px-[18px] max-[760px]:pb-8 max-[760px]:pt-6">
           {groups.map((group) => (
             <section class="block max-[760px]:mb-7">
-              <p class="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">{group.label}</p>
-              <nav class="grid gap-[3px]">{group.links.map(([label, href]) => <a class:list={["rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground max-[760px]:px-2.5 max-[760px]:py-[9px] max-[760px]:text-[15px]", { "bg-muted font-bold text-foreground": currentPath === href || (href === "/blog" && currentPath.startsWith("/blog/")) }]} href={href}>{label}</a>)}</nav>
+              <p class="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+                {group.label}
+              </p>
+              <nav class="grid gap-[3px]">
+                {group.links.map(([label, href]) => (
+                  <a
+                    class:list={[
+                      'rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground max-[760px]:px-2.5 max-[760px]:py-[9px] max-[760px]:text-[15px]',
+                      {
+                        'bg-muted font-bold text-foreground':
+                          currentPath === href ||
+                          (href === '/blog' && currentPath.startsWith('/blog/')),
+                      },
+                    ]}
+                    href={href}
+                  >
+                    {label}
+                  </a>
+                ))}
+              </nav>
             </section>
           ))}
         </div>
         <div class="sticky bottom-0 mt-5 shrink-0 border-t border-border bg-background px-2 pb-4 pt-5 text-muted-foreground max-[760px]:mt-0 max-[760px]:px-[18px] max-[760px]:pt-4">
           <ThemeToggle />
-          <p class="mb-2 text-[13px] font-bold leading-[1.45] text-foreground">A small crate.<br />A little less config code.</p>
+          <p class="mb-2 text-[13px] font-bold leading-[1.45] text-foreground">
+            A small crate.
+            <br />A little less config code.
+          </p>
           <span class="text-[11px] tracking-[0.02em]">MIT / Apache-2.0</span>
         </div>
       </aside>
       <div class="min-w-0">
-        <main class="min-w-0"><slot /></main>
+        <main class="min-w-0">
+          <slot />
+        </main>
         <footer class="mt-[72px] flex items-end justify-between gap-7 border-t border-border pb-1.5 pt-[26px] text-[13px] text-muted-foreground max-[760px]:mt-14 max-[760px]:flex-col max-[760px]:items-start max-[760px]:gap-[18px]">
-          <nav class="flex flex-wrap gap-[18px] max-[760px]:gap-x-4 max-[760px]:gap-y-2.5" aria-label="dotcfg external links">
-            <a class="hover:text-foreground" href="https://docs.rs/dotcfg">API Reference <span>↗</span></a>
-            <a class="hover:text-foreground" href="https://crates.io/crates/dotcfg">crates.io <span>↗</span></a>
-            <a class="hover:text-foreground" href="https://github.com/Spectra010s/dotcfg">GitHub <span>↗</span></a>
+          <nav
+            class="flex flex-wrap gap-[18px] max-[760px]:gap-x-4 max-[760px]:gap-y-2.5"
+            aria-label="dotcfg external links"
+          >
+            <a class="hover:text-foreground" href="https://docs.rs/dotcfg">
+              API Reference <span>↗</span>
+            </a>
+            <a class="hover:text-foreground" href="https://crates.io/crates/dotcfg">
+              crates.io <span>↗</span>
+            </a>
+            <a class="hover:text-foreground" href="https://github.com/Spectra010s/dotcfg">
+              GitHub <span>↗</span>
+            </a>
           </nav>
-          <p class="m-0 whitespace-nowrap max-[760px]:whitespace-normal">Built by <a class="font-bold text-primary" href="https://github.com/Spectra010s">Spectra010s <span>↗</span></a></p>
+          <p class="m-0 whitespace-nowrap max-[760px]:whitespace-normal">
+            Built by{' '}
+            <a class="font-bold text-primary" href="https://github.com/Spectra010s">
+              Spectra010s <span>↗</span>
+            </a>
+          </p>
         </footer>
       </div>
-      <aside class="sticky top-[94px] h-max max-h-[calc(100vh-122px)] overflow-y-auto pt-0.5 max-[1200px]:hidden" aria-label="On this page" data-page-toc class:list={{ "has-server-toc": tocItems.length > 0 }}>
-        <p class="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">On this page</p>
+      <aside
+        class="sticky top-[94px] h-max max-h-[calc(100vh-122px)] overflow-y-auto pt-0.5 max-[1200px]:hidden"
+        aria-label="On this page"
+        data-page-toc
+        class:list={{ 'has-server-toc': tocItems.length > 0 }}
+      >
+        <p class="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+          On this page
+        </p>
         <nav class="grid gap-[3px]" data-page-toc-nav>
           {tocItems.map((heading) => (
-            <a href={`#${heading.slug}`} class:list={["py-[5px] text-xs leading-[1.4] text-muted-foreground hover:text-foreground", { "pl-3": heading.depth === 3 }]}>{heading.text}</a>
+            <a
+              href={`#${heading.slug}`}
+              class:list={[
+                'py-[5px] text-xs leading-[1.4] text-muted-foreground hover:text-foreground',
+                { 'pl-3': heading.depth === 3 },
+              ]}
+            >
+              {heading.text}
+            </a>
           ))}
         </nav>
       </aside>
@@ -184,8 +375,12 @@ const groups = [
       openButton?.addEventListener('click', () => setNavOpen(true));
       closeButton?.addEventListener('click', () => setNavOpen(false));
       backdrop?.addEventListener('click', () => setNavOpen(false));
-      nav?.querySelectorAll('a').forEach((link) => link.addEventListener('click', () => setNavOpen(false)));
-      document.addEventListener('keydown', (event) => { if (event.key === 'Escape') setNavOpen(false); });
+      nav
+        ?.querySelectorAll('a')
+        .forEach((link) => link.addEventListener('click', () => setNavOpen(false)));
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') setNavOpen(false);
+      });
 
       const toc = document.querySelector('[data-page-toc]');
       const tocNav = toc?.querySelector('[data-page-toc-nav]');
@@ -193,10 +388,13 @@ const groups = [
         const headings = [...document.querySelectorAll('main h2, main h3')];
         const used = new Set();
         const slugify = (value) => {
-          const base = value.toLowerCase().trim()
-            .replace(/[^a-z0-9\s-]/g, '')
-            .replace(/\s+/g, '-')
-            .replace(/-+/g, '-') || 'section';
+          const base =
+            value
+              .toLowerCase()
+              .trim()
+              .replace(/[^a-z0-9\s-]/g, '')
+              .replace(/\s+/g, '-')
+              .replace(/-+/g, '-') || 'section';
           let slug = base;
           let index = 2;
           while (used.has(slug) || document.getElementById(slug)) {
@@ -211,7 +409,9 @@ const groups = [
           const link = document.createElement('a');
           link.href = `#${heading.id}`;
           link.textContent = heading.textContent || '';
-          link.className = 'py-[5px] text-xs leading-[1.4] text-muted-foreground hover:text-foreground' + (heading.tagName === 'H3' ? ' pl-3' : '');
+          link.className =
+            'py-[5px] text-xs leading-[1.4] text-muted-foreground hover:text-foreground' +
+            (heading.tagName === 'H3' ? ' pl-3' : '');
           tocNav.appendChild(link);
         });
         if (headings.length === 0) toc.hidden = true;

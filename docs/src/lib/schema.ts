@@ -1,52 +1,52 @@
-const siteUrl = "https://dotcfg.pxxl.click";
+const siteUrl = 'https://dotcfg.pxxl.click';
 
 export const creator = {
-  "@type": "Person",
-  "@id": "https://github.com/Spectra010s#person",
-  name: "Spectra010s",
-  url: "https://github.com/Spectra010s",
+  '@type': 'Person',
+  '@id': 'https://github.com/Spectra010s#person',
+  name: 'Spectra010s',
+  url: 'https://github.com/Spectra010s',
 };
 
 type SchemaNode = {
-  "@type": string;
+  '@type': string;
   [key: string]: unknown;
 };
 
 export const software = {
-  "@type": "SoftwareApplication",
-  "@id": `${siteUrl}/#software`,
-  name: "dotcfg",
-  applicationCategory: "DeveloperApplication",
-  operatingSystem: "Cross-platform",
-  softwareVersion: "0.3.0",
-  description: "Flexible config management for Rust applications.",
-  programmingLanguage: "Rust",
-  author: { "@id": creator["@id"] },
-  creator: { "@id": creator["@id"] },
-  codeRepository: "https://github.com/Spectra010s/dotcfg",
-  downloadUrl: "https://crates.io/crates/dotcfg",
+  '@type': 'SoftwareApplication',
+  '@id': `${siteUrl}/#software`,
+  name: 'dotcfg',
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'Cross-platform',
+  softwareVersion: '0.3.0',
+  description: 'Flexible config management for Rust applications.',
+  programmingLanguage: 'Rust',
+  author: { '@id': creator['@id'] },
+  creator: { '@id': creator['@id'] },
+  codeRepository: 'https://github.com/Spectra010s/dotcfg',
+  downloadUrl: 'https://crates.io/crates/dotcfg',
   sameAs: [
-    "https://github.com/Spectra010s/dotcfg",
-    "https://crates.io/crates/dotcfg",
-    "https://docs.rs/dotcfg",
+    'https://github.com/Spectra010s/dotcfg',
+    'https://crates.io/crates/dotcfg',
+    'https://docs.rs/dotcfg',
   ],
 };
 
 const website = {
-  "@type": "WebSite",
-  "@id": `${siteUrl}/#website`,
-  name: "dotcfg documentation",
+  '@type': 'WebSite',
+  '@id': `${siteUrl}/#website`,
+  name: 'dotcfg documentation',
   url: siteUrl,
-  creator: { "@id": creator["@id"] },
-  about: { "@id": software["@id"] },
+  creator: { '@id': creator['@id'] },
+  about: { '@id': software['@id'] },
 };
 
 export const absoluteUrl = (path: string) =>
-  path === "/" ? siteUrl : `${siteUrl}${path.startsWith("/") ? path : `/${path}`}`;
+  path === '/' ? siteUrl : `${siteUrl}${path.startsWith('/') ? path : `/${path}`}`;
 
 export const createSchema = (nodes: SchemaNode[]) => ({
-  "@context": "https://schema.org",
-  "@graph": nodes,
+  '@context': 'https://schema.org',
+  '@graph': nodes,
 });
 
 export const createBreadcrumbSchema = (
@@ -54,25 +54,27 @@ export const createBreadcrumbSchema = (
   path: string,
   parent?: { name: string; path: string },
 ) => ({
-  "@type": "BreadcrumbList",
-  "@id": `${absoluteUrl(path)}#breadcrumb`,
+  '@type': 'BreadcrumbList',
+  '@id': `${absoluteUrl(path)}#breadcrumb`,
   itemListElement: [
     {
-      "@type": "ListItem",
+      '@type': 'ListItem',
       position: 1,
-      name: "Home",
+      name: 'Home',
       item: siteUrl,
     },
     ...(parent
-      ? [{
-          "@type": "ListItem",
-          position: 2,
-          name: parent.name,
-          item: absoluteUrl(parent.path),
-        }]
+      ? [
+          {
+            '@type': 'ListItem',
+            position: 2,
+            name: parent.name,
+            item: absoluteUrl(parent.path),
+          },
+        ]
       : []),
     {
-      "@type": "ListItem",
+      '@type': 'ListItem',
       position: parent ? 3 : 2,
       name: title,
       item: absoluteUrl(path),
@@ -81,11 +83,7 @@ export const createBreadcrumbSchema = (
 });
 
 export const createHomeSchema = (description: string) =>
-  createSchema([
-    { ...website, description },
-    software,
-    creator,
-  ]);
+  createSchema([{ ...website, description }, software, creator]);
 
 export const createDocsSchema = ({
   title,
@@ -98,16 +96,16 @@ export const createDocsSchema = ({
 }) =>
   createSchema([
     {
-      "@type": "TechArticle",
-      "@id": `${absoluteUrl(path)}#article`,
+      '@type': 'TechArticle',
+      '@id': `${absoluteUrl(path)}#article`,
       name: title,
       headline: title,
       description,
       url: absoluteUrl(path),
-      author: { "@id": creator["@id"] },
-      isPartOf: { "@id": website["@id"] },
-      about: { "@id": software["@id"] },
-      breadcrumb: { "@id": `${absoluteUrl(path)}#breadcrumb` },
+      author: { '@id': creator['@id'] },
+      isPartOf: { '@id': website['@id'] },
+      about: { '@id': software['@id'] },
+      breadcrumb: { '@id': `${absoluteUrl(path)}#breadcrumb` },
     },
     createBreadcrumbSchema(title, path),
     website,
@@ -122,26 +120,26 @@ export const createBlogIndexSchema = ({
   description: string;
   posts: Array<{ title: string; path: string }>;
 }) => {
-  const path = "/blog";
+  const path = '/blog';
   return createSchema([
     {
-      "@type": "Blog",
-      "@id": `${absoluteUrl(path)}#blog`,
-      name: "dotcfg blog",
+      '@type': 'Blog',
+      '@id': `${absoluteUrl(path)}#blog`,
+      name: 'dotcfg blog',
       description,
       url: absoluteUrl(path),
-      author: { "@id": creator["@id"] },
-      publisher: { "@id": creator["@id"] },
-      isPartOf: { "@id": website["@id"] },
-      about: { "@id": software["@id"] },
+      author: { '@id': creator['@id'] },
+      publisher: { '@id': creator['@id'] },
+      isPartOf: { '@id': website['@id'] },
+      about: { '@id': software['@id'] },
       blogPost: posts.map((post) => ({
-        "@type": "BlogPosting",
-        "@id": `${absoluteUrl(post.path)}#article`,
+        '@type': 'BlogPosting',
+        '@id': `${absoluteUrl(post.path)}#article`,
         headline: post.title,
         url: absoluteUrl(post.path),
       })),
     },
-    createBreadcrumbSchema("Blog", path),
+    createBreadcrumbSchema('Blog', path),
     website,
     software,
     creator,
@@ -167,11 +165,11 @@ export const createBlogPostSchema = ({
 }) => {
   const url = absoluteUrl(path);
   const article = {
-    "@type": "BlogPosting",
-    "@id": `${url}#article`,
+    '@type': 'BlogPosting',
+    '@id': `${url}#article`,
     mainEntityOfPage: {
-      "@type": "WebPage",
-      "@id": url,
+      '@type': 'WebPage',
+      '@id': url,
     },
     headline: title,
     name: title,
@@ -179,26 +177,26 @@ export const createBlogPostSchema = ({
     url,
     datePublished: publishedAt.toISOString(),
     ...(modifiedAt ? { dateModified: modifiedAt.toISOString() } : {}),
-    author: { "@id": creator["@id"] },
-    publisher: { "@id": creator["@id"] },
-    isPartOf: { "@id": `${siteUrl}/blog#blog` },
-    about: { "@id": software["@id"] },
-    programmingLanguage: "Rust",
-    ...(tags.length ? { keywords: tags.join(", ") } : {}),
+    author: { '@id': creator['@id'] },
+    publisher: { '@id': creator['@id'] },
+    isPartOf: { '@id': `${siteUrl}/blog#blog` },
+    about: { '@id': software['@id'] },
+    programmingLanguage: 'Rust',
+    ...(tags.length ? { keywords: tags.join(', ') } : {}),
     ...(version ? { version } : {}),
-    breadcrumb: { "@id": `${url}#breadcrumb` },
+    breadcrumb: { '@id': `${url}#breadcrumb` },
   };
 
   return createSchema([
     article,
-    createBreadcrumbSchema(title, path, { name: "Blog", path: "/blog" }),
+    createBreadcrumbSchema(title, path, { name: 'Blog', path: '/blog' }),
     {
-      "@type": "Blog",
-      "@id": `${siteUrl}/blog#blog`,
-      name: "dotcfg blog",
+      '@type': 'Blog',
+      '@id': `${siteUrl}/blog#blog`,
+      name: 'dotcfg blog',
       url: `${siteUrl}/blog`,
-      isPartOf: { "@id": website["@id"] },
-      about: { "@id": software["@id"] },
+      isPartOf: { '@id': website['@id'] },
+      about: { '@id': software['@id'] },
     },
     website,
     software,

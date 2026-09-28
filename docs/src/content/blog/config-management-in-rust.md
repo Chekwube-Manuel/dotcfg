@@ -1,13 +1,13 @@
 ---
-title: "Config Management in Rust: From Zero-Boilerplate to Full Control"
-description: "A look at the architectural trade-off between global configuration choices and per-instance control, and why dotcfg takes the latter approach."
+title: 'Config Management in Rust: From Zero-Boilerplate to Full Control'
+description: 'A look at the architectural trade-off between global configuration choices and per-instance control, and why dotcfg takes the latter approach.'
 publishedAt: 2026-09-17
 tags:
   - rust
   - configuration
   - dotcfg
   - architecture
-version: "0.3.0"
+version: '0.3.0'
 ---
 
 In the Rust ecosystem, configuration crates often make a fundamental architectural trade-off: **zero-boilerplate simplicity** vs. **runtime flexibility**.

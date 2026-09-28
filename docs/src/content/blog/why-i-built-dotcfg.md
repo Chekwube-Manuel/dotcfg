@@ -1,12 +1,12 @@
 ---
-title: "Why I Built dotcfg: A Flexible Config Manager for Rust Apps"
-description: "The configuration problems that pushed me to build dotcfg, from non-destructive loading to key-level access and flexible directory strategies."
+title: 'Why I Built dotcfg: A Flexible Config Manager for Rust Apps'
+description: 'The configuration problems that pushed me to build dotcfg, from non-destructive loading to key-level access and flexible directory strategies.'
 publishedAt: 2026-09-20
 tags:
   - rust
   - configuration
   - dotcfg
-version: "0.3.0"
+version: '0.3.0'
 ---
 
 When building command-line tools or desktop applications in Rust, one of the first questions you face is: **where and how should I store user configuration?**

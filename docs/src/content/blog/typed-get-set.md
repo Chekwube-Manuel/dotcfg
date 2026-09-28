@@ -1,13 +1,13 @@
 ---
-title: "Typed Get & Set in dotcfg: When Your Config Must Be a Real Type"
-description: "Use get_as and set_val when configuration values need to stay real Rust types instead of making a round trip through strings."
+title: 'Typed Get & Set in dotcfg: When Your Config Must Be a Real Type'
+description: 'Use get_as and set_val when configuration values need to stay real Rust types instead of making a round trip through strings.'
 publishedAt: 2026-09-03
 tags:
   - rust
   - configuration
   - dotcfg
   - types
-version: "0.2.0"
+version: '0.2.0'
 ---
 
 dotcfg `0.2.0` introduced `get_as` and `set_val`, the typed companions to `get` and `set`.
