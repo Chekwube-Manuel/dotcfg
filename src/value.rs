@@ -149,6 +149,61 @@ fn datetime(map: &Map<String, Value>) -> Option<&str> {
     }
 }
 
+/// Deep-merge `overlay` into `base`: `overlay` wins.
+///
+/// Maps merge key by key, recursing into nested maps. Arrays, scalars and
+/// mismatched shapes replace wholesale — layering never concatenates lists.
+/// A TOML datetime node is opaque: it replaces or is replaced, never merged,
+/// so timestamps survive layering intact.
+pub(crate) fn merge(base: &mut Value, overlay: Value) {
+    match (base, overlay) {
+        (Value::Object(base_map), Value::Object(overlay_map))
+            if !is_opaque(base_map) && !is_opaque(&overlay_map) =>
+        {
+            for (key, val) in overlay_map {
+                match base_map.get_mut(&key) {
+                    Some(slot) => merge(slot, val),
+                    None => {
+                        base_map.insert(key, val);
+                    }
+                }
+            }
+        }
+        (slot, val) => *slot = val,
+    }
+}
+
+/// Whether `map` is an internal node that must never be merged into: today
+/// only TOML's private datetime representation.
+fn is_opaque(map: &Map<String, Value>) -> bool {
+    #[cfg(feature = "toml")]
+    if datetime(map).is_some() {
+        return true;
+    }
+    let _ = map;
+    false
+}
+
+/// Format-independent string form of a node.
+///
+/// The same rules [`DotCfg::get`](crate::DotCfg::get) uses for JSON today —
+/// scalars raw, arrays and maps compact JSON — applied unconditionally. A
+/// [`ConfigStack`](crate::ConfigStack) spans formats, so it always renders
+/// this way instead of following whichever source supplied the value.
+pub(crate) fn display_canonical(value: &Value) -> String {
+    match value {
+        Value::String(s) => s.clone(),
+        Value::Number(n) => n.to_string(),
+        Value::Bool(b) => b.to_string(),
+        Value::Null => "null".to_string(),
+        #[cfg(feature = "toml")]
+        Value::Object(map) if datetime(map).is_some() => {
+            datetime(map).unwrap_or_default().to_string()
+        }
+        Value::Array(_) | Value::Object(_) => serde_json::to_string(value).unwrap_or_default(),
+    }
+}
+
 /// Convert the tree to a `toml::Value`, honouring TOML's lack of `null`.
 #[cfg(feature = "toml")]
 fn to_toml(value: &Value) -> Result<toml::Value, Error> {
