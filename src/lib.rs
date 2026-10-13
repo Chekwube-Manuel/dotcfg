@@ -124,9 +124,9 @@ pub struct DotCfg {
 
 /// The env var name `key` maps to under `prefix`, or `None` with no prefix.
 ///
-/// Shared by [`DotCfg`] and [`ConfigStack`](crate::ConfigStack) so direct
-/// and layered reads use one forward mapping: `<PREFIX>_<KEY>`, uppercased,
-/// with `.` replaced by `_`.
+/// Direct [`DotCfg`] lookup only: `<PREFIX>_<KEY>`, uppercased, with `.`
+/// replaced by `_`. [`ConfigStack`](crate::ConfigStack) uses its own `__`
+/// nesting convention instead (see `stack_env_var`).
 pub(crate) fn env_var_name(prefix: Option<&str>, key: &str) -> Option<String> {
     let prefix = prefix?;
     Some(format!(
@@ -139,8 +139,9 @@ pub(crate) fn env_var_name(prefix: Option<&str>, key: &str) -> Option<String> {
 /// The environment override for `key`, as `(var name, raw value)`.
 ///
 /// `Ok(None)` means "no prefix configured, or the var is unset". A var that
-/// is set but unreadable is an error rather than a silent fallback. Shared
-/// by [`DotCfg`] and [`ConfigStack`](crate::ConfigStack).
+/// is set but unreadable is an error rather than a silent fallback. Direct
+/// [`DotCfg`] lookup only; [`ConfigStack`](crate::ConfigStack) resolves
+/// through its own `__` convention instead.
 pub(crate) fn env_override(
     prefix: Option<&str>,
     key: &str,

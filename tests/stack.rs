@@ -269,8 +269,8 @@ macro_rules! stack_suite {
                     .with_env_prefix(&p)
                     .build()
                     .unwrap();
-                // nested env discovery applies to typed reads through load;
-                // direct get/get_as keep the single-underscore forward lookup
+                // nested env discovery applies to every typed read: get, get_as and load
+                // all share the `__` convention
                 let cfg: AppConfig = stack.load_or_error().unwrap();
                 assert_eq!(cfg.database.port, 9999);
                 assert_eq!(cfg.database.host, "envhost");
@@ -455,7 +455,7 @@ fn build_rejects_duplicates_and_unknown_targets() {
     let b = DotCfg::new("dotcfg_stack_test").at_dir(&dir);
     assert!(matches!(
         ConfigStack::new().layer("a", a).layer("a", b).build(),
-        Err(Error::DuplicateName(_))
+        Err(Error::DuplicateSource(_))
     ));
     let c = DotCfg::new("dotcfg_stack_test").at_dir(&dir);
     assert!(matches!(
@@ -476,6 +476,97 @@ fn set_val_roundtrip_without_fixtures() {
         .unwrap();
     stack.set_val("port", 3001u16).unwrap();
     assert_eq!(stack.get_as::<u16>("port").unwrap(), 3001);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// A nested env variable is observed identically by get, get_as and load.
+#[test]
+fn nested_env_consistent_across_reads() {
+    #[derive(Deserialize, Debug)]
+    struct Db {
+        port: u16,
+    }
+    #[derive(Deserialize, Debug)]
+    struct Cfg {
+        database: Db,
+    }
+    let p = prefix("consistent");
+    set_env(&format!("{p}_DATABASE__PORT"), "9999");
+    let missing = DotCfg::new("dotcfg_stack_test").at_dir(temp_dir("consistent-missing"));
+    let stack = ConfigStack::new()
+        .layer("missing", missing)
+        .with_env_prefix(&p)
+        .build()
+        .unwrap();
+    assert_eq!(stack.get("database.port").unwrap(), "9999");
+    assert_eq!(stack.get_as::<u16>("database.port").unwrap(), 9999);
+    assert_eq!(stack.load::<Cfg>().unwrap().unwrap().database.port, 9999);
+}
+
+/// Newtypes preserve typed env parsing: numeric and boolean fields set via
+/// env must not arrive as strings.
+#[test]
+fn newtype_typed_env_fields() {
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Inner {
+        port: u16,
+        enabled: bool,
+    }
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Wrapper(Inner);
+    let p = prefix("newtype");
+    set_env(&format!("{p}_PORT"), "8080");
+    set_env(&format!("{p}_ENABLED"), "true");
+    let missing = DotCfg::new("dotcfg_stack_test").at_dir(temp_dir("newtype-missing"));
+    let stack = ConfigStack::new()
+        .layer("missing", missing)
+        .with_env_prefix(&p)
+        .build()
+        .unwrap();
+    assert_eq!(
+        stack.load::<Wrapper>().unwrap().unwrap(),
+        Wrapper(Inner {
+            port: 8080,
+            enabled: true
+        })
+    );
+}
+
+/// Externally tagged enums resolve from maps with typed env payloads.
+#[cfg(feature = "toml")]
+#[test]
+fn externally_tagged_enum_typed_env_payload() {
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Endpoint {
+        port: u16,
+    }
+    #[derive(Deserialize, Debug, PartialEq)]
+    enum Mode {
+        #[serde(rename = "fast")]
+        Fast(Endpoint),
+        #[serde(rename = "slow")]
+        Slow,
+    }
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Cfg {
+        mode: Mode,
+    }
+    let p = prefix("taggedenum");
+    set_env(&format!("{p}_MODE__FAST__PORT"), "9000");
+    let dir = temp_dir("taggedenum");
+    let cfg = DotCfg::new("dotcfg_stack_test").at_dir(&dir);
+    write_file(&cfg.file_path().unwrap(), "[mode.fast]\n");
+    let stack = ConfigStack::new()
+        .layer("file", cfg)
+        .with_env_prefix(&p)
+        .build()
+        .unwrap();
+    assert_eq!(
+        stack.load::<Cfg>().unwrap().unwrap(),
+        Cfg {
+            mode: Mode::Fast(Endpoint { port: 9000 })
+        }
+    );
     let _ = std::fs::remove_dir_all(dir);
 }
 

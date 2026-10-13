@@ -28,8 +28,9 @@
 //! files are an error — the same rules as single-file reads.
 
 use std::collections::{BTreeSet, VecDeque};
+use std::ffi::OsString;
 
-use serde::de::{DeserializeOwned, DeserializeSeed, MapAccess, Visitor};
+use serde::de::{DeserializeOwned, DeserializeSeed, EnumAccess, MapAccess, VariantAccess, Visitor};
 use serde::{Deserializer, Serialize};
 
 use crate::env::EnvStr;
@@ -89,7 +90,7 @@ impl ConfigStack {
         let mut seen = std::collections::HashSet::new();
         for (name, _) in &self.layers {
             if !seen.insert(name) {
-                return Err(Error::DuplicateName(name.clone()));
+                return Err(Error::DuplicateSource(name.clone()));
             }
         }
         if let Some(target) = &self.write_to {
@@ -120,9 +121,10 @@ impl ConfigStack {
     /// `__` splits nesting, a single `_` stays inside a key, empty segments
     /// are dropped, everything lowercased: `APP_PORT` → `port`,
     /// `APP_API_KEY` → `api_key`, `APP_DATABASE__PORT` → `database.port`.
-    /// Non-unicode names and values are skipped: enumeration cannot carry
-    /// per-key errors without poisoning the whole load.
-    fn discover(&self) -> Vec<(Vec<String>, String, String)> {
+    /// Non-unicode names are skipped (they cannot match a text prefix);
+    /// non-unicode values stay staged and fail lazily with
+    /// [`Error::EnvNotUnicode`] when read, exactly like direct lookups.
+    fn discover(&self) -> Vec<(Vec<String>, String, OsString)> {
         let Some(prefix) = self
             .env_prefix
             .as_ref()
@@ -133,7 +135,7 @@ impl ConfigStack {
         let stem = format!("{prefix}_");
         let mut out = Vec::new();
         for (name, val) in std::env::vars_os() {
-            let (Some(name), Some(val)) = (name.to_str(), val.to_str()) else {
+            let Some(name) = name.to_str() else {
                 continue;
             };
             let Some(suffix) = name.strip_prefix(&stem) else {
@@ -147,7 +149,7 @@ impl ConfigStack {
             if path.is_empty() {
                 continue;
             }
-            out.push((path, name.to_owned(), val.to_owned()));
+            out.push((path, name.to_owned(), val));
         }
         out
     }
@@ -163,12 +165,13 @@ impl ConfigStack {
 
     /// Read one value as a string.
     ///
-    /// A matching environment variable wins with its raw value, exactly like
-    /// [`DotCfg::get`]. Otherwise the merged tree renders with the
-    /// format-independent canonical form (scalars raw, arrays and maps
-    /// compact JSON), never in a supplier's format.
+    /// A matching environment variable wins with its raw value, using the
+    /// stack `__` convention (`database.port` reads `PREFIX_DATABASE__PORT`).
+    /// Otherwise the merged tree renders with the format-independent
+    /// canonical form (scalars raw, arrays and maps compact JSON), never in
+    /// a supplier's format.
     pub fn get(&self, key: &str) -> Result<String, Error> {
-        if let Some((_, raw)) = crate::env_override(self.env_prefix.as_deref(), key)? {
+        if let Some((_, raw)) = stack_env_override(self.env_prefix.as_deref(), key)? {
             return Ok(raw);
         }
         let (tree, any_file) = self.merged_tree()?;
@@ -180,10 +183,11 @@ impl ConfigStack {
 
     /// Read one value deserialized into `T`.
     ///
-    /// Environment wins via the same typed rules as [`DotCfg::get_as`];
-    /// otherwise the merged-tree node deserializes directly.
+    /// Environment wins via the same typed rules as [`DotCfg::get_as`],
+    /// looked up with the stack `__` convention; otherwise the merged-tree
+    /// node deserializes directly.
     pub fn get_as<T: DeserializeOwned>(&self, key: &str) -> Result<T, Error> {
-        if let Some((var, raw)) = crate::env_override(self.env_prefix.as_deref(), key)? {
+        if let Some((var, raw)) = stack_env_override(self.env_prefix.as_deref(), key)? {
             return env::from_env_str(&var, &raw);
         }
         let (tree, any_file) = self.merged_tree()?;
@@ -273,7 +277,7 @@ impl Default for ConfigStack {
 /// File trees plus discovered env entries backing one resolution.
 struct Overlay {
     tree: Value,
-    env: Vec<(Vec<String>, String, String)>,
+    env: Vec<(Vec<String>, String, OsString)>,
 }
 
 impl Overlay {
@@ -287,11 +291,11 @@ impl Overlay {
     }
 
     /// Exact env match at `path`: `(var, raw)`.
-    fn env_at(&self, path: &[String]) -> Option<(&str, &str)> {
+    fn env_at(&self, path: &[String]) -> Option<(&str, &OsString)> {
         self.env
             .iter()
             .find(|(entry, _, _)| entry == path)
-            .map(|(_, var, raw)| (var.as_str(), raw.as_str()))
+            .map(|(_, var, raw)| (var.as_str(), raw))
     }
 
     /// Whether any env entry lives strictly below `path`.
@@ -353,6 +357,40 @@ impl Overlay {
     }
 }
 
+/// The env var name `key` maps to under the stack convention: `.` becomes
+/// `__`, everything uppercased, a single `_` stays inside a key. So
+/// `database.port` → `PREFIX_DATABASE__PORT` and `api_key` →
+/// `PREFIX_API_KEY`. Unlike direct [`DotCfg`] lookup (single `_`), this
+/// inverts safely, so [`ConfigStack::load`] discovers exactly what
+/// [`ConfigStack::get`] and [`ConfigStack::get_as`] read.
+fn stack_env_var(prefix: Option<&str>, key: &str) -> Option<String> {
+    let prefix = prefix?;
+    let suffix = key
+        .split('.')
+        .map(|segment| segment.to_ascii_uppercase())
+        .filter(|segment| !segment.is_empty())
+        .collect::<Vec<_>>()
+        .join("__");
+    if suffix.is_empty() {
+        return None;
+    }
+    Some(format!("{}_{}", prefix.to_ascii_uppercase(), suffix))
+}
+
+/// The environment override for `key` under the stack convention, as
+/// `(var name, raw value)`. Same contract as the direct lookup: unset falls
+/// through, unreadable is an error.
+fn stack_env_override(prefix: Option<&str>, key: &str) -> Result<Option<(String, String)>, Error> {
+    let Some(var) = stack_env_var(prefix, key) else {
+        return Ok(None);
+    };
+    match std::env::var(&var) {
+        Ok(raw) => Ok(Some((var, raw))),
+        Err(std::env::VarError::NotPresent) => Ok(None),
+        Err(std::env::VarError::NotUnicode(_)) => Err(Error::EnvNotUnicode(var)),
+    }
+}
+
 /// Display form of a path for errors: dotted, or `<root>`.
 fn display_path(path: &[String]) -> String {
     if path.is_empty() {
@@ -364,12 +402,21 @@ fn display_path(path: &[String]) -> String {
 
 /// One owned value in the resolved view.
 enum Node {
-    /// An exact env match wins over whatever the files hold.
-    Env { var: String, raw: String },
+    /// An exact env match wins over whatever the files hold. The raw value
+    /// stays staged as [`OsString`] and is interpreted on read, so a
+    /// non-unicode value fails with [`Error::EnvNotUnicode`] exactly like a
+    /// direct lookup instead of poisoning discovery.
+    Env { var: String, raw: OsString },
     /// A file-tree value, cloned out of the merged tree.
     Tree(Value),
     /// An object: pre-resolved children in deterministic order.
     Map(VecDeque<(String, Node)>),
+}
+
+/// Borrow staged env bytes as text, or report them like direct reads do.
+fn env_text<'a>(var: &str, raw: &'a OsString) -> Result<&'a str, Error> {
+    raw.to_str()
+        .ok_or_else(|| Error::EnvNotUnicode(var.to_string()))
 }
 
 /// Deserializer over an owned [`Node`]: no borrows cross into visitor
@@ -388,9 +435,11 @@ macro_rules! dispatch {
             V: Visitor<'de>,
         {
             match self.node {
-                Node::Env { var, raw } => EnvStr { raw }
-                    .$method(visitor)
-                    .map_err(|err| Error::EnvParse(var, err.to_string())),
+                Node::Env { var, raw } => EnvStr {
+                    raw: env_text(&var, &raw)?,
+                }
+                .$method(visitor)
+                .map_err(|err| Error::EnvParse(var, err.to_string())),
                 Node::Tree(value) => value.$method(visitor).map_err(tree_err),
                 Node::Map(children) => visitor.visit_map(StackMapAccess {
                     remaining: children,
@@ -436,9 +485,11 @@ impl<'de> Deserializer<'de> for Cursor {
         V: Visitor<'de>,
     {
         match self.node {
-            Node::Env { var, raw } => EnvStr { raw }
-                .deserialize_unit_struct(name, visitor)
-                .map_err(|err| Error::EnvParse(var, err.to_string())),
+            Node::Env { var, raw } => EnvStr {
+                raw: env_text(&var, &raw)?,
+            }
+            .deserialize_unit_struct(name, visitor)
+            .map_err(|err| Error::EnvParse(var, err.to_string())),
             Node::Tree(value) => value
                 .deserialize_unit_struct(name, visitor)
                 .map_err(tree_err),
@@ -454,9 +505,11 @@ impl<'de> Deserializer<'de> for Cursor {
         V: Visitor<'de>,
     {
         match self.node {
-            Node::Env { var, raw } => EnvStr { raw }
-                .deserialize_tuple(len, visitor)
-                .map_err(|err| Error::EnvParse(var, err.to_string())),
+            Node::Env { var, raw } => EnvStr {
+                raw: env_text(&var, &raw)?,
+            }
+            .deserialize_tuple(len, visitor)
+            .map_err(|err| Error::EnvParse(var, err.to_string())),
             Node::Tree(value) => value.deserialize_tuple(len, visitor).map_err(tree_err),
             Node::Map(children) => visitor.visit_map(StackMapAccess {
                 remaining: children,
@@ -475,9 +528,11 @@ impl<'de> Deserializer<'de> for Cursor {
         V: Visitor<'de>,
     {
         match self.node {
-            Node::Env { var, raw } => EnvStr { raw }
-                .deserialize_tuple_struct(name, len, visitor)
-                .map_err(|err| Error::EnvParse(var, err.to_string())),
+            Node::Env { var, raw } => EnvStr {
+                raw: env_text(&var, &raw)?,
+            }
+            .deserialize_tuple_struct(name, len, visitor)
+            .map_err(|err| Error::EnvParse(var, err.to_string())),
             Node::Tree(value) => value
                 .deserialize_tuple_struct(name, len, visitor)
                 .map_err(tree_err),
@@ -493,9 +548,11 @@ impl<'de> Deserializer<'de> for Cursor {
         V: Visitor<'de>,
     {
         match self.node {
-            Node::Env { var, raw } => EnvStr { raw }
-                .deserialize_option(visitor)
-                .map_err(|err| Error::EnvParse(var, err.to_string())),
+            Node::Env { var, raw } => EnvStr {
+                raw: env_text(&var, &raw)?,
+            }
+            .deserialize_option(visitor)
+            .map_err(|err| Error::EnvParse(var, err.to_string())),
             Node::Tree(value) => value.deserialize_option(visitor).map_err(tree_err),
             Node::Map(children) => visitor.visit_some(Cursor {
                 node: Node::Map(children),
@@ -503,28 +560,28 @@ impl<'de> Deserializer<'de> for Cursor {
         }
     }
 
-    /// Newtypes unwrap: a map-backed node materializes first so wrapped
-    /// shapes resolve exactly like single-file reads.
+    /// Newtypes unwrap through a fresh cursor, so the wrapped value keeps
+    /// full overlay semantics (env leaves stay typed) instead of freezing
+    /// into strings.
     fn deserialize_newtype_struct<V>(
         self,
-        name: &'static str,
+        _name: &'static str,
         visitor: V,
     ) -> Result<V::Value, Error>
     where
         V: Visitor<'de>,
     {
         match self.node {
-            Node::Map(children) => {
-                let materialized = materialize(children)?;
-                materialized
-                    .deserialize_newtype_struct(name, visitor)
-                    .map_err(tree_err)
+            Node::Map(children) => visitor.visit_newtype_struct(Cursor {
+                node: Node::Map(children),
+            }),
+            Node::Env { var, raw } => EnvStr {
+                raw: env_text(&var, &raw)?,
             }
-            Node::Env { var, raw } => EnvStr { raw }
-                .deserialize_newtype_struct(name, visitor)
-                .map_err(|err| Error::EnvParse(var, err.to_string())),
+            .deserialize_newtype_struct(_name, visitor)
+            .map_err(|err| Error::EnvParse(var, err.to_string())),
             Node::Tree(value) => value
-                .deserialize_newtype_struct(name, visitor)
+                .deserialize_newtype_struct(_name, visitor)
                 .map_err(tree_err),
         }
     }
@@ -542,15 +599,20 @@ impl<'de> Deserializer<'de> for Cursor {
         V: Visitor<'de>,
     {
         match self.node {
-            Node::Map(children) => {
-                let materialized = materialize(children)?;
-                materialized
-                    .deserialize_enum(_name, _variants, visitor)
-                    .map_err(tree_err)
+            Node::Map(mut children) => {
+                if children.len() != 1 {
+                    return Err(Error::Deserialize(
+                        "expected map with a single key".to_string(),
+                    ));
+                }
+                let (variant, node) = children.pop_front().expect("checked length");
+                visitor.visit_enum(StackEnumAccess { variant, node })
             }
-            Node::Env { var, raw } => EnvStr { raw }
-                .deserialize_enum(_name, _variants, visitor)
-                .map_err(|err| Error::EnvParse(var, err.to_string())),
+            Node::Env { var, raw } => EnvStr {
+                raw: env_text(&var, &raw)?,
+            }
+            .deserialize_enum(_name, _variants, visitor)
+            .map_err(|err| Error::EnvParse(var, err.to_string())),
             Node::Tree(value) => value
                 .deserialize_enum(_name, _variants, visitor)
                 .map_err(tree_err),
@@ -566,9 +628,11 @@ impl<'de> Deserializer<'de> for Cursor {
                 remaining: children,
                 pending: None,
             }),
-            Node::Env { var, raw } => EnvStr { raw }
-                .deserialize_map(visitor)
-                .map_err(|err| Error::EnvParse(var, err.to_string())),
+            Node::Env { var, raw } => EnvStr {
+                raw: env_text(&var, &raw)?,
+            }
+            .deserialize_map(visitor)
+            .map_err(|err| Error::EnvParse(var, err.to_string())),
             Node::Tree(value) => value.deserialize_map(visitor).map_err(tree_err),
         }
     }
@@ -587,9 +651,11 @@ impl<'de> Deserializer<'de> for Cursor {
                 remaining: children,
                 pending: None,
             }),
-            Node::Env { var, raw } => EnvStr { raw }
-                .deserialize_struct(_name, _fields, visitor)
-                .map_err(|err| Error::EnvParse(var, err.to_string())),
+            Node::Env { var, raw } => EnvStr {
+                raw: env_text(&var, &raw)?,
+            }
+            .deserialize_struct(_name, _fields, visitor)
+            .map_err(|err| Error::EnvParse(var, err.to_string())),
             Node::Tree(value) => value
                 .deserialize_struct(_name, _fields, visitor)
                 .map_err(tree_err),
@@ -597,21 +663,82 @@ impl<'de> Deserializer<'de> for Cursor {
     }
 }
 
-/// Materialize a map node into a plain tree: env leaves become their raw
-/// strings (untyped views see env as strings), everything else clones
-/// through. Used only where a compound node meets a visitor that cannot
-/// walk children itself (newtypes, externally tagged enums).
-fn materialize(children: VecDeque<(String, Node)>) -> Result<Value, Error> {
-    let mut map = serde_json::Map::new();
-    for (key, node) in children {
-        let value = match node {
-            Node::Env { raw, .. } => Value::String(raw),
-            Node::Tree(value) => value,
-            Node::Map(nested) => materialize(nested)?,
-        };
-        map.insert(key, value);
+/// One-line kind of a node for error messages.
+fn kind_of(node: &Node) -> &'static str {
+    match node {
+        Node::Env { .. } => "a string",
+        Node::Tree(Value::Null) => "null",
+        Node::Tree(Value::Bool(_)) => "a boolean",
+        Node::Tree(Value::Number(_)) => "a number",
+        Node::Tree(Value::String(_)) => "a string",
+        Node::Tree(Value::Array(_)) => "a sequence",
+        Node::Tree(Value::Object(_)) | Node::Map(_) => "a map",
     }
-    Ok(Value::Object(map))
+}
+
+/// Enum access over a single-pair map: the variant comes from the one key,
+/// the payload resolves through a fresh cursor, so typed env leaves keep
+/// their exact deserialization.
+struct StackEnumAccess {
+    variant: String,
+    node: Node,
+}
+
+impl<'de> EnumAccess<'de> for StackEnumAccess {
+    type Error = Error;
+    type Variant = StackVariantAccess;
+
+    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant), Error>
+    where
+        V: DeserializeSeed<'de>,
+    {
+        let variant = seed.deserialize(MapKey(self.variant))?;
+        Ok((variant, StackVariantAccess { node: self.node }))
+    }
+}
+
+/// Payload side of [`StackEnumAccess`].
+struct StackVariantAccess {
+    node: Node,
+}
+
+impl<'de> VariantAccess<'de> for StackVariantAccess {
+    type Error = Error;
+
+    fn unit_variant(self) -> Result<(), Error> {
+        match self.node {
+            Node::Tree(Value::Null) => Ok(()),
+            node => Err(Error::Deserialize(format!(
+                "invalid type: {}, expected unit variant",
+                kind_of(&node)
+            ))),
+        }
+    }
+
+    fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value, Error>
+    where
+        T: DeserializeSeed<'de>,
+    {
+        seed.deserialize(Cursor { node: self.node })
+    }
+
+    fn tuple_variant<V>(self, len: usize, visitor: V) -> Result<V::Value, Error>
+    where
+        V: Visitor<'de>,
+    {
+        Cursor { node: self.node }.deserialize_tuple(len, visitor)
+    }
+
+    fn struct_variant<V>(
+        self,
+        fields: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value, Error>
+    where
+        V: Visitor<'de>,
+    {
+        Cursor { node: self.node }.deserialize_struct("", fields, visitor)
+    }
 }
 
 /// Map access over pre-resolved children.

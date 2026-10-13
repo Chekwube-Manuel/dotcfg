@@ -26,8 +26,8 @@ pub enum Error {
     NotATable(String),
 
     /// A layer name is already used by another source in the stack.
-    #[error("Duplicate layer name: '{0}'")]
-    DuplicateName(String),
+    #[error("Duplicate source: '{0}'")]
+    DuplicateSource(String),
 
     /// No layer with this name exists in the stack.
     #[error("Unknown source: '{0}'")]
