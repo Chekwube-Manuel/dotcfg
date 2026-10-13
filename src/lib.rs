@@ -53,6 +53,7 @@
 
 mod env;
 pub mod error;
+mod stack;
 mod value;
 
 use std::{
@@ -62,6 +63,7 @@ use std::{
 
 pub use error::Error;
 use serde::{Deserialize, Serialize};
+pub use stack::ConfigStack;
 use value::Value;
 
 #[cfg(not(any(feature = "toml", feature = "json", feature = "yaml")))]
@@ -118,6 +120,41 @@ pub struct DotCfg {
     format: Format,
     filename: String,
     env_prefix: Option<String>,
+}
+
+/// The env var name `key` maps to under `prefix`, or `None` with no prefix.
+///
+/// Direct [`DotCfg`] lookup only: `<PREFIX>_<KEY>`, uppercased, with `.`
+/// replaced by `_`. [`ConfigStack`](crate::ConfigStack) uses its own `__`
+/// nesting convention instead (see `stack_env_var`).
+pub(crate) fn env_var_name(prefix: Option<&str>, key: &str) -> Option<String> {
+    let prefix = prefix?;
+    Some(format!(
+        "{}_{}",
+        prefix.to_ascii_uppercase(),
+        key.replace('.', "_").to_ascii_uppercase()
+    ))
+}
+
+/// The environment override for `key`, as `(var name, raw value)`.
+///
+/// `Ok(None)` means "no prefix configured, or the var is unset". A var that
+/// is set but unreadable is an error rather than a silent fallback. Direct
+/// [`DotCfg`] lookup only; [`ConfigStack`](crate::ConfigStack) resolves
+/// through its own `__` convention instead.
+pub(crate) fn env_override(
+    prefix: Option<&str>,
+    key: &str,
+) -> Result<Option<(String, String)>, Error> {
+    let Some(var) = env_var_name(prefix, key) else {
+        return Ok(None);
+    };
+
+    match std::env::var(&var) {
+        Ok(raw) => Ok(Some((var, raw))),
+        Err(std::env::VarError::NotPresent) => Ok(None),
+        Err(std::env::VarError::NotUnicode(_)) => Err(Error::EnvNotUnicode(var)),
+    }
 }
 
 impl DotCfg {
@@ -289,33 +326,13 @@ impl DotCfg {
         self
     }
 
-    /// The env var name `key` maps to, or `None` when no prefix is configured.
-    ///
-    /// Single source of truth for the mapping — both read paths go through it.
-    fn env_var_name(&self, key: &str) -> Option<String> {
-        let prefix = self.env_prefix.as_ref()?;
-        Some(format!(
-            "{}_{}",
-            prefix.to_ascii_uppercase(),
-            key.replace('.', "_").to_ascii_uppercase()
-        ))
-    }
-
     /// The environment override for `key`, as `(var name, raw value)`.
     ///
     /// `Ok(None)` means "no prefix configured, or the var is unset" — i.e. fall
     /// through to the file. A var that is set but unreadable is an error rather
     /// than a silent fallback, so a misconfigured environment stays visible.
     fn env_override(&self, key: &str) -> Result<Option<(String, String)>, Error> {
-        let Some(var) = self.env_var_name(key) else {
-            return Ok(None);
-        };
-
-        match std::env::var(&var) {
-            Ok(raw) => Ok(Some((var, raw))),
-            Err(std::env::VarError::NotPresent) => Ok(None),
-            Err(std::env::VarError::NotUnicode(_)) => Err(Error::EnvNotUnicode(var)),
-        }
+        env_override(self.env_prefix.as_deref(), key)
     }
 
     /// Returns the config directory path
@@ -374,7 +391,7 @@ impl DotCfg {
     /// `Ok(None)` when the file doesn't exist. An existing file with no values
     /// (zero bytes, whitespace, an empty document) is an empty tree; a malformed
     /// one is an error.
-    fn read_tree(&self) -> Result<Option<Value>, Error> {
+    pub(crate) fn read_tree(&self) -> Result<Option<Value>, Error> {
         let path = self.file_path()?;
 
         if !path.exists() {
@@ -608,25 +625,20 @@ mod unit_tests {
 
     #[test]
     fn env_var_name_mapping() {
-        let cfg = DotCfg::new("mytool").with_env_prefix("myapp");
-
         // flat key
-        assert_eq!(cfg.env_var_name("port").unwrap(), "MYAPP_PORT");
+        assert_eq!(env_var_name(Some("myapp"), "port").unwrap(), "MYAPP_PORT");
         // nested key — dots become underscores
-        assert_eq!(cfg.env_var_name("user.name").unwrap(), "MYAPP_USER_NAME");
-        // already-uppercase input is left alone
-        assert_eq!(cfg.env_var_name("PORT").unwrap(), "MYAPP_PORT");
-        // the prefix is uppercased too
         assert_eq!(
-            DotCfg::new("mytool")
-                .with_env_prefix("MyApp")
-                .env_var_name("port")
-                .unwrap(),
-            "MYAPP_PORT"
+            env_var_name(Some("myapp"), "user.name").unwrap(),
+            "MYAPP_USER_NAME"
         );
+        // already-uppercase input is left alone
+        assert_eq!(env_var_name(Some("myapp"), "PORT").unwrap(), "MYAPP_PORT");
+        // the prefix is uppercased too
+        assert_eq!(env_var_name(Some("MyApp"), "port").unwrap(), "MYAPP_PORT");
 
         // no prefix configured — no env var to look at
-        assert!(DotCfg::new("mytool").env_var_name("port").is_none());
+        assert!(env_var_name(None, "port").is_none());
     }
 
     #[test]

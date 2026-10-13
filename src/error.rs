@@ -1,5 +1,7 @@
 //! Error types for `dotcfg`.
 
+use std::fmt::Display;
+
 /// Errors returned by [`DotCfg`](crate::DotCfg) operations.
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -22,6 +24,18 @@ pub enum Error {
     /// Expected a table/section but found a different value type.
     #[error("'{0}' is not a table")]
     NotATable(String),
+
+    /// A layer name is already used by another source in the stack.
+    #[error("Duplicate source: '{0}'")]
+    DuplicateSource(String),
+
+    /// No layer with this name exists in the stack.
+    #[error("Unknown source: '{0}'")]
+    UnknownSource(String),
+
+    /// The stack has no writable source: no `write_to` target was configured.
+    #[error("Stack has no writable source: configure `write_to` first")]
+    NoWriteTarget,
 
     /// An environment-variable override could not be read as the requested type.
     #[error("Invalid value for env var '{0}': {1}")]
@@ -68,3 +82,12 @@ pub enum Error {
 /// Former name of [`Error`].
 #[deprecated(since = "0.4.0", note = "renamed to `dotcfg::Error`")]
 pub type DotCfgError = Error;
+
+impl serde::de::Error for Error {
+    /// Raised when layered resolution meets a value it cannot place: the
+    /// [`ConfigStack`](crate::ConfigStack) overlay reports these, and they
+    /// surface as [`Error::Deserialize`], like any other typed-read failure.
+    fn custom<T: Display>(msg: T) -> Self {
+        Error::Deserialize(msg.to_string())
+    }
+}

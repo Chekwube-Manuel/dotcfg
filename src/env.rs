@@ -20,6 +20,7 @@
 //! Maps and structs are rejected with a clear error rather than silently
 //! failing — express those as separate nested keys instead.
 
+use std::borrow::Borrow;
 use std::fmt;
 
 use serde::de::{
@@ -58,19 +59,24 @@ impl de::Error for EnvError {
 }
 
 /// A [`Deserializer`] over one raw environment value.
-struct EnvStr<'a> {
-    raw: &'a str,
+///
+/// Generic over ownership so both borrowed reads ([`from_env_str`]) and owned
+/// layered reads ([`ConfigStack`](crate::ConfigStack)) parse with identical
+/// rules: `S` is usually `&str`, or `String` when the value is staged.
+pub(crate) struct EnvStr<S> {
+    pub(crate) raw: S,
 }
 
-impl EnvStr<'_> {
+impl<S: Borrow<str>> EnvStr<S> {
     fn parse<T>(&self, what: &str) -> Result<T, EnvError>
     where
         T: std::str::FromStr,
     {
         self.raw
+            .borrow()
             .trim()
             .parse()
-            .map_err(|_| EnvError(format!("expected {}, got '{}'", what, self.raw)))
+            .map_err(|_| EnvError(format!("expected {}, got '{}'", what, self.raw.borrow())))
     }
 
     fn unsupported<T>(&self, what: &str) -> Result<T, EnvError> {
@@ -94,7 +100,7 @@ macro_rules! parsed {
     };
 }
 
-impl<'de> Deserializer<'de> for EnvStr<'_> {
+impl<'de, S: Borrow<str>> Deserializer<'de> for EnvStr<S> {
     type Error = EnvError;
 
     /// Env values have no inherent type — self-describing formats get the string.
@@ -102,17 +108,20 @@ impl<'de> Deserializer<'de> for EnvStr<'_> {
     where
         V: Visitor<'de>,
     {
-        visitor.visit_str(self.raw)
+        visitor.visit_str(self.raw.borrow())
     }
 
     fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value, EnvError>
     where
         V: Visitor<'de>,
     {
-        match self.raw.trim().to_ascii_lowercase().as_str() {
+        match self.raw.borrow().trim().to_ascii_lowercase().as_str() {
             "true" | "1" => visitor.visit_bool(true),
             "false" | "0" => visitor.visit_bool(false),
-            _ => Err(EnvError(format!("expected bool, got '{}'", self.raw))),
+            _ => Err(EnvError(format!(
+                "expected bool, got '{}'",
+                self.raw.borrow()
+            ))),
         }
     }
 
@@ -134,28 +143,28 @@ impl<'de> Deserializer<'de> for EnvStr<'_> {
     where
         V: Visitor<'de>,
     {
-        visitor.visit_str(self.raw)
+        visitor.visit_str(self.raw.borrow())
     }
 
     fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, EnvError>
     where
         V: Visitor<'de>,
     {
-        visitor.visit_str(self.raw)
+        visitor.visit_str(self.raw.borrow())
     }
 
     fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value, EnvError>
     where
         V: Visitor<'de>,
     {
-        visitor.visit_bytes(self.raw.as_bytes())
+        visitor.visit_bytes(self.raw.borrow().as_bytes())
     }
 
     fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value, EnvError>
     where
         V: Visitor<'de>,
     {
-        visitor.visit_bytes(self.raw.as_bytes())
+        visitor.visit_bytes(self.raw.borrow().as_bytes())
     }
 
     /// A var that is set is always `Some` — absence is handled by the caller.
@@ -200,10 +209,14 @@ impl<'de> Deserializer<'de> for EnvStr<'_> {
     where
         V: Visitor<'de>,
     {
-        let parts: Vec<&str> = if self.raw.trim().is_empty() {
+        let parts: Vec<String> = if self.raw.borrow().trim().is_empty() {
             Vec::new()
         } else {
-            self.raw.split(',').map(str::trim).collect()
+            self.raw
+                .borrow()
+                .split(',')
+                .map(|part| part.trim().to_owned())
+                .collect()
         };
 
         visitor.visit_seq(CommaSeparated {
@@ -259,7 +272,7 @@ impl<'de> Deserializer<'de> for EnvStr<'_> {
     where
         V: Visitor<'de>,
     {
-        let de: StrDeserializer<'_, EnvError> = self.raw.trim().into_deserializer();
+        let de: StrDeserializer<'_, EnvError> = self.raw.borrow().trim().into_deserializer();
         visitor.visit_enum(de)
     }
 
@@ -267,7 +280,7 @@ impl<'de> Deserializer<'de> for EnvStr<'_> {
     where
         V: Visitor<'de>,
     {
-        visitor.visit_str(self.raw)
+        visitor.visit_str(self.raw.borrow())
     }
 
     fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value, EnvError>
@@ -279,11 +292,13 @@ impl<'de> Deserializer<'de> for EnvStr<'_> {
 }
 
 /// Sequence access over the comma-separated parts of one env value.
-struct CommaSeparated<'a> {
-    iter: std::vec::IntoIter<&'a str>,
+///
+/// Parts are owned so borrowed and staged reads share the logic.
+struct CommaSeparated {
+    iter: std::vec::IntoIter<String>,
 }
 
-impl<'de> SeqAccess<'de> for CommaSeparated<'_> {
+impl<'de> SeqAccess<'de> for CommaSeparated {
     type Error = EnvError;
 
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, EnvError>
