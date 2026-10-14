@@ -45,7 +45,7 @@ use crate::{DotCfg, Error, env, env_override, value};
 /// [`Error::NoWriteTarget`] rather than guessing a target).
 ///
 /// Reads resolve low → high precedence with environment on top; see the
-/// [module](self) docs. Every method takes `&self`: resolution re-reads
+/// module-level docs. Every method takes `&self`: resolution re-reads
 /// the sources on each call, so concurrent edits on disk are picked up.
 pub struct ConfigStack {
     layers: Vec<(String, DotCfg)>,
@@ -176,7 +176,7 @@ impl ConfigStack {
     /// File trees merge low → high, then environment applies on top with one
     /// shared definition of "resolved": `None` only when no source file
     /// exists and no matching env var is set. Env-only keys participate via
-    /// the `__` discovery rule documented on [`Self::discover`].
+    /// the `__` discovery rule (`APP_X__Y` → `x.y`).
     pub fn load<T: DeserializeOwned>(&self) -> Result<Option<T>, Error> {
         let (overlay, any_source) = self.resolve()?;
         if !any_source {
