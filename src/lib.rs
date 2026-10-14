@@ -124,24 +124,29 @@ pub struct DotCfg {
 
 /// The env var name `key` maps to under `prefix`, or `None` with no prefix.
 ///
-/// Direct [`DotCfg`] lookup only: `<PREFIX>_<KEY>`, uppercased, with `.`
-/// replaced by `_`. [`ConfigStack`](crate::ConfigStack) uses its own `__`
-/// nesting convention instead (see `stack_env_var`).
+/// `.` marks nesting and becomes `__`; a single `_` stays inside a key — so
+/// `port` → `<PREFIX>_PORT`, `api_key` → `<PREFIX>_API_KEY` and
+/// `database.port` → `<PREFIX>_DATABASE__PORT`. Shared by [`DotCfg`] and
+/// [`ConfigStack`](crate::ConfigStack) so both read the same variables.
 pub(crate) fn env_var_name(prefix: Option<&str>, key: &str) -> Option<String> {
     let prefix = prefix?;
-    Some(format!(
-        "{}_{}",
-        prefix.to_ascii_uppercase(),
-        key.replace('.', "_").to_ascii_uppercase()
-    ))
+    let suffix = key
+        .split('.')
+        .map(|segment| segment.to_ascii_uppercase())
+        .filter(|segment| !segment.is_empty())
+        .collect::<Vec<_>>()
+        .join("__");
+    if suffix.is_empty() {
+        return None;
+    }
+    Some(format!("{}_{}", prefix.to_ascii_uppercase(), suffix))
 }
 
 /// The environment override for `key`, as `(var name, raw value)`.
 ///
 /// `Ok(None)` means "no prefix configured, or the var is unset". A var that
-/// is set but unreadable is an error rather than a silent fallback. Direct
-/// [`DotCfg`] lookup only; [`ConfigStack`](crate::ConfigStack) resolves
-/// through its own `__` convention instead.
+/// is set but unreadable is an error rather than a silent fallback. Shared
+/// by [`DotCfg`] and [`ConfigStack`](crate::ConfigStack).
 pub(crate) fn env_override(
     prefix: Option<&str>,
     key: &str,
@@ -301,12 +306,12 @@ impl DotCfg {
     /// environment first and only fall back to the config file when the
     /// variable is unset. Opt-in: without this, the environment is never read.
     ///
-    /// A key maps to `<PREFIX>_<KEY>`, uppercased, with `.` replaced by `_`:
+    /// A key maps to `<PREFIX>_<KEY>`, uppercased, with `__` marking nesting:
     ///
     /// | key | env var (prefix `myapp`) |
     /// | :-- | :-- |
     /// | `port` | `MYAPP_PORT` |
-    /// | `user.name` | `MYAPP_USER_NAME` |
+    /// | `user.name` | `MYAPP_USER__NAME` |
     ///
     /// ```rust,no_run
     /// # use dotcfg::DotCfg;
@@ -419,8 +424,15 @@ impl DotCfg {
 
     /// Load the config file.
     ///
-    /// Returns `None` if the file doesn't exist — no auto-create.
+    /// Returns `None` if the file doesn't exist — no auto-create — unless
+    /// [`Self::with_env_prefix`] is set and a matching environment variable
+    /// exists, in which case the env-overlaid configuration is returned.
     /// Use [`Self::load_or_default`] if you want auto-create behavior.
+    ///
+    /// With a prefix configured, matching `PREFIX_*` variables overlay the
+    /// file (or stand alone when no file exists) using the same `__`
+    /// nesting rule as [`Self::get_as`]: `APP_DATABASE__PORT` overrides
+    /// `database.port`, while a single `_` stays inside a key.
     ///
     /// A file that exists but holds no values (empty, whitespace only, or an
     /// empty document) is deserialized as an empty config, so it succeeds only
@@ -430,9 +442,22 @@ impl DotCfg {
     where
         T: for<'de> Deserialize<'de>,
     {
-        match self.read_tree()? {
-            Some(tree) => value::from_value(tree).map(Some),
-            None => Ok(None),
+        let tree = self.read_tree()?;
+        let env = if self.env_prefix.is_some() {
+            crate::stack::discover_env(self.env_prefix.as_deref())
+        } else {
+            Vec::new()
+        };
+        match (tree, env.is_empty()) {
+            (None, true) => Ok(None),
+            (tree, _) => {
+                let tree = tree.unwrap_or_else(value::empty);
+                if env.is_empty() {
+                    value::from_value(tree).map(Some)
+                } else {
+                    crate::stack::load_overlay(tree, env).map(Some)
+                }
+            }
         }
     }
 
@@ -627,10 +652,24 @@ mod unit_tests {
     fn env_var_name_mapping() {
         // flat key
         assert_eq!(env_var_name(Some("myapp"), "port").unwrap(), "MYAPP_PORT");
-        // nested key — dots become underscores
+        // nested key — dots become double underscores
         assert_eq!(
             env_var_name(Some("myapp"), "user.name").unwrap(),
-            "MYAPP_USER_NAME"
+            "MYAPP_USER__NAME"
+        );
+        // flat keys with underscores stay flat — never nesting
+        assert_eq!(
+            env_var_name(Some("myapp"), "api_key").unwrap(),
+            "MYAPP_API_KEY"
+        );
+        assert_eq!(
+            env_var_name(Some("myapp"), "my_long_key").unwrap(),
+            "MYAPP_MY_LONG_KEY"
+        );
+        // multiple levels of nesting
+        assert_eq!(
+            env_var_name(Some("myapp"), "server.tls.mode").unwrap(),
+            "MYAPP_SERVER__TLS__MODE"
         );
         // already-uppercase input is left alone
         assert_eq!(env_var_name(Some("myapp"), "PORT").unwrap(), "MYAPP_PORT");
@@ -689,7 +728,7 @@ mod unit_tests {
         set_env(&format!("{up}_PORT"), "9000");
         set_env(&format!("{up}_DEBUG"), "true");
         set_env(&format!("{up}_PLUGINS"), "fmt,lint");
-        set_env(&format!("{up}_FEATURES_AUTO_UPDATE"), "false");
+        set_env(&format!("{up}_FEATURES__AUTO_UPDATE"), "false");
         set_env(&format!("{up}_BAD"), "notanumber");
 
         let cfg = DotCfg::new("dotcfg_no_such_app").with_env_prefix(&prefix);
