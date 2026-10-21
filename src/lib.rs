@@ -492,8 +492,8 @@ impl DotCfg {
     ///
     /// Creates the config directory if it doesn't exist.
     pub fn save<T: Serialize>(&self, config: &T) -> Result<(), Error> {
-        let content = value::serialize_config(&self.format, config)?;
         self.ensure_dir()?;
+        let content = value::serialize_config(&self.format, config)?;
         fs::write(self.file_path()?, content)?;
         Ok(())
     }
@@ -708,8 +708,8 @@ impl DotCfg {
     /// Save a config value asynchronously.
     #[cfg(feature = "async")]
     pub async fn save_async<T: Serialize>(&self, config: &T) -> Result<(), Error> {
-        let content = value::serialize_config(&self.format, config)?;
         self.ensure_dir_async().await?;
+        let content = value::serialize_config(&self.format, config)?;
         tokio::fs::write(self.file_path()?, content).await?;
         Ok(())
     }
