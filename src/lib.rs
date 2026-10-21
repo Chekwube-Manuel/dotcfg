@@ -492,19 +492,9 @@ impl DotCfg {
     ///
     /// Creates the config directory if it doesn't exist.
     pub fn save<T: Serialize>(&self, config: &T) -> Result<(), Error> {
+        let content = value::serialize_config(&self.format, config)?;
         self.ensure_dir()?;
-        let path = self.file_path()?;
-
-        let content = match self.format {
-            #[cfg(feature = "toml")]
-            Format::Toml => toml::to_string_pretty(config)?,
-            #[cfg(feature = "json")]
-            Format::Json => serde_json::to_string_pretty(config)?,
-            #[cfg(feature = "yaml")]
-            Format::Yaml => serde_yaml_ng::to_string(config)?,
-        };
-
-        fs::write(&path, content)?;
+        fs::write(self.file_path()?, content)?;
         Ok(())
     }
 
@@ -718,8 +708,10 @@ impl DotCfg {
     /// Save a config value asynchronously.
     #[cfg(feature = "async")]
     pub async fn save_async<T: Serialize>(&self, config: &T) -> Result<(), Error> {
-        let tree = value::to_value(config)?;
-        self.write_tree_async(&tree).await
+        let content = value::serialize_config(&self.format, config)?;
+        self.ensure_dir_async().await?;
+        tokio::fs::write(self.file_path()?, content).await?;
+        Ok(())
     }
 
     /// Get a key as a string asynchronously, honoring configured env overrides.
