@@ -760,7 +760,11 @@ impl DotCfg {
 
     /// Set a typed value asynchronously, preserving all other keys.
     #[cfg(feature = "async")]
-    pub async fn set_val_async<T: Serialize>(&self, key: &str, new_value: T) -> Result<(), Error> {
+    pub async fn set_val_async<T: Serialize>(
+        &self,
+        key: &str,
+        new_value: T,
+    ) -> Result<(), Error> {
         self.set_node_async(key, value::to_value(new_value)?).await
     }
 
