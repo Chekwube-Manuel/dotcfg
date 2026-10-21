@@ -794,8 +794,8 @@ impl DotCfg {
         for ancestor in start.as_ref().ancestors() {
             let dir = ancestor.join(&dot_dir);
             let file = dir.join(&file_name);
-            if let Ok(metadata) = tokio::fs::metadata(&file).await {
-                if metadata.is_file() {
+            match tokio::fs::metadata(&file).await {
+                Ok(metadata) if metadata.is_file() => {
                     return Ok(Some(Self {
                         app_name: self.app_name,
                         strategy: DirStrategy::Custom(dir),
@@ -804,6 +804,7 @@ impl DotCfg {
                         env_prefix: self.env_prefix,
                     }));
                 }
+                _ => {}
             }
         }
         Ok(None)
