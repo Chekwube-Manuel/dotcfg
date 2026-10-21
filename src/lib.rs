@@ -794,17 +794,15 @@ impl DotCfg {
         for ancestor in start.as_ref().ancestors() {
             let dir = ancestor.join(&dot_dir);
             let file = dir.join(&file_name);
-            if tokio::fs::try_exists(&file).await.unwrap_or(false) {
-                if let Ok(metadata) = tokio::fs::metadata(&file).await {
-                    if metadata.is_file() {
-                        return Ok(Some(Self {
-                            app_name: self.app_name,
-                            strategy: DirStrategy::Custom(dir),
-                            format: self.format,
-                            filename: self.filename,
-                            env_prefix: self.env_prefix,
-                        }));
-                    }
+            if let Ok(metadata) = tokio::fs::metadata(&file).await {
+                if metadata.is_file() {
+                    return Ok(Some(Self {
+                        app_name: self.app_name,
+                        strategy: DirStrategy::Custom(dir),
+                        format: self.format,
+                        filename: self.filename,
+                        env_prefix: self.env_prefix,
+                    }));
                 }
             }
         }
@@ -814,7 +812,7 @@ impl DotCfg {
     /// Returns whether the config file exists asynchronously.
     #[cfg(feature = "async")]
     pub async fn exists_async(&self) -> Result<bool, Error> {
-        tokio::fs::try_exists(self.file_path()?).await.map_err(Error::Io)
+        Ok(tokio::fs::try_exists(self.file_path()?).await?)
     }
 
     /// Delete the config file asynchronously, leaving its directory in place.
