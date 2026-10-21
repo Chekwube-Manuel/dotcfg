@@ -120,3 +120,35 @@ async fn async_ancestor_lookup_finds_project_config() {
 
     assert_eq!(found.get_async("username").await.unwrap(), "project");
 }
+
+#[cfg(feature = "json")]
+#[tokio::test]
+async fn async_json_uses_shared_value_handling() {
+    let (_dir, cfg) = isolated_cfg();
+    let cfg = cfg.json();
+    let original = TestConfig {
+        username: "json-user".into(),
+        port: 8123,
+    };
+
+    cfg.save_async(&original).await.unwrap();
+    assert_eq!(cfg.load_async::<TestConfig>().await.unwrap(), Some(original));
+    cfg.set_val_async("server.port", 9000_u16).await.unwrap();
+    assert_eq!(cfg.get_as_async::<u16>("server.port").await.unwrap(), 9000);
+}
+
+#[cfg(feature = "yaml")]
+#[tokio::test]
+async fn async_yaml_uses_shared_value_handling() {
+    let (_dir, cfg) = isolated_cfg();
+    let cfg = cfg.yaml();
+    let original = TestConfig {
+        username: "yaml-user".into(),
+        port: 8124,
+    };
+
+    cfg.save_async(&original).await.unwrap();
+    assert_eq!(cfg.load_async::<TestConfig>().await.unwrap(), Some(original));
+    cfg.set_val_async("server.port", 9001_u16).await.unwrap();
+    assert_eq!(cfg.get_as_async::<u16>("server.port").await.unwrap(), 9001);
+}
